@@ -43,4 +43,10 @@ pub enum InglError {
 
     #[err("Failed to verify the History buffer keys sent")]
     InvalidHistoryBufferKeys, //11
+
+    #[err("Failed to verify the Config data")]
+    InvalidConfigData, //12
+
+    #[err("Failed to verify the Uris data")]
+    InvalidUrisAccountData, //13
 }

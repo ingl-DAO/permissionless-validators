@@ -48,7 +48,7 @@ impl AccountInfoHelpers for AccountInfo<'_> {
     }
 }
 
-pub fn assert_program_owned(a: &AccountInfo) -> ProgramResult {
+pub fn assert_program_owned(_: &AccountInfo) -> ProgramResult {
     colored_log!(0, 5, Red, "Error: Not implemented.");
     panic!();
 }
