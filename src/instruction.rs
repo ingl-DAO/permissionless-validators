@@ -27,6 +27,7 @@ pub enum InstructionEnum {
         program_upgrade_threshold: u8,
         creator_royalties: u16,
         rarities: Vec<u16>,
+        rarity_names: Vec<String>,
         twitter_handle: String,
         discord_invite: String,
         validator_name: String,
