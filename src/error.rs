@@ -49,4 +49,7 @@ pub enum InglError {
 
     #[err("Failed to verify the Uris data")]
     InvalidUrisAccountData, //13
+
+    #[err("Invalid Data")]
+    InvalidData, //14
 }

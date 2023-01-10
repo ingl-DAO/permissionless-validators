@@ -53,7 +53,8 @@ pub enum InstructionEnum {
         log_level: u8,
     },
     UploadUris {
-        uris: Vec<Vec<String>>,
+        uris: Vec<String>,
+        rarity: u8,
         log_level: u8,
     },
     ResetConfig {

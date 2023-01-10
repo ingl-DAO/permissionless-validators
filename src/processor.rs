@@ -4,7 +4,7 @@ use crate::{
     instruction::InstructionEnum,
     log,
     processes::{
-        init_processes::init::process_init, nft_processes::mint_nft::process_mint_nft,
+        init_processes::{init::process_init, upload_uris::upload_uris}, nft_processes::mint_nft::process_mint_nft,
         validator_processes::create_vote_account::create_vote_account,
     },
 };
@@ -58,6 +58,10 @@ pub fn process_instruction(
 
         InstructionEnum::MintNft { log_level } => {
             process_mint_nft(program_id, accounts, log_level, false)?
+        }
+
+        InstructionEnum::UploadUris { uris, rarity, log_level } => {
+            upload_uris(program_id, accounts, uris, rarity, log_level)?
         }
 
         _ => {

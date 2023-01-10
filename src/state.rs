@@ -1,4 +1,6 @@
 #![allow(unused_parens)]
+use std::collections::BTreeMap;
+
 use crate::{
     colored_log,
     error::InglError,
@@ -25,6 +27,7 @@ pub mod constants {
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
     pub const GENERAL_ACCOUNT_VAL_PHRASE: u32 = 836_438_471;
     pub const NFT_DATA_VAL_PHRASE: u32 = 271_832_912;
+    pub const GOVERNANCE_DATA_VAL_PHRASE: u32 = 675_549_872;
 
     pub const INGL_CONFIG_SEED: &[u8] = b"ingl_config";
     pub const URIS_ACCOUNT_SEED: &[u8] = b"uris_account";
@@ -37,6 +40,8 @@ pub mod constants {
     pub const STAKE_ACCOUNT_KEY: &[u8] = b"stake_account";
     pub const PD_POOL_ACCOUNT_KEY: &[u8] = b"pd_pool_account";
     pub const NFT_ACCOUNT_CONST: &[u8] = b"nft_account";
+    pub const INGL_PROGRAM_AUTHORITY_KEY: &[u8] = b"ingl_program_authority";
+    pub const INGL_PROPOSAL_KEY: &[u8] = b"ingl_proposal";
 
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
@@ -58,7 +63,7 @@ pub struct ValidatorConfig {
     pub initial_redemption_fee: u8,
     pub unit_backing: u64,
     pub redemption_fee_duration: u32,
-    pub program_upgrade_threshold: u8,
+    pub proposal_quorum: u8,
     pub creator_royalties: u16,
     pub commission: u8,
     pub validator_id: Pubkey,
@@ -94,12 +99,12 @@ impl ValidatorConfig {
         if self.validation_phrase != constants::INGL_CONFIG_VAL_PHRASE {
             Err(InglError::InvalidConfigData.utilize("Validation phrase is incorrect"))?
         }
-        if self.program_upgrade_threshold > 100 {
+        if self.proposal_quorum > 100 {
             Err(InglError::InvalidConfigData
                 .utilize("Program upgrade threshold must be less than 100%"))?
         }
 
-        if self.program_upgrade_threshold < 65 {
+        if self.proposal_quorum < 65 {
             Err(InglError::InvalidConfigData
                 .utilize("Program upgrade threshold must be less than 65%"))?
         }
@@ -116,7 +121,7 @@ impl ValidatorConfig {
         initial_redemption_fee: u8,
         unit_backing: u64,
         redemption_fee_duration: u32,
-        program_upgrade_threshold: u8,
+        proposal_quorum: u8,
         creator_royalties: u16,
         commission: u8,
         validator_id: Pubkey,
@@ -132,7 +137,7 @@ impl ValidatorConfig {
             initial_redemption_fee,
             unit_backing,
             redemption_fee_duration,
-            program_upgrade_threshold,
+            proposal_quorum,
             creator_royalties,
             commission,
             validator_id,
@@ -277,6 +282,7 @@ pub struct GeneralData {
     pub last_withdraw_epoch: u64,
     pub last_total_staked: u64,
     pub is_t_stake_initialized: bool,
+    pub proposal_numeration: u32,
     pub rebalancing_data: RebalancingData,
     pub vote_rewards: Vec<VoteReward>,
 }
@@ -292,6 +298,7 @@ impl Default for GeneralData {
             last_withdraw_epoch: 0,
             last_total_staked: 0,
             is_t_stake_initialized: false,
+            proposal_numeration: 0,
             rebalancing_data: RebalancingData::default(),
             vote_rewards: Vec::new(),
         }
@@ -330,6 +337,141 @@ pub enum LogColors {
     Blank,
 }
 
+#[derive(BorshSerialize, Clone, BorshDeserialize)]
+pub enum ConfigAccountType {
+    MaxPrimaryStake(u32),
+    NftHolderShare(u8),
+    InitialRedemptionFee(u8),
+    RedemptionFeeDuration(u32),
+    ValidatorName(String),
+    TwitterHandle(String),
+    DiscordInvite(String),
+}
+impl ConfigAccountType {
+    pub fn verify(&self) -> ProgramResult {
+        match self {
+            ConfigAccountType::MaxPrimaryStake(_) => (),
+            ConfigAccountType::NftHolderShare(x) => {
+                if *x > 100 {
+                    Err(InglError::InvalidData.utilize("NFT Holder Share must be 100 or less"))?
+                }
+            }
+            ConfigAccountType::InitialRedemptionFee(x) => {
+                if *x > 100 {
+                    Err(InglError::InvalidData
+                        .utilize("Initial Redemption Fee must be 100 or less"))?
+                }
+            }
+            ConfigAccountType::RedemptionFeeDuration(x) => {
+                if *x > 86400 * 365 * 2 {
+                    Err(InglError::InvalidData
+                        .utilize("Early Redemption Fee cannot exceed 2 years"))?
+                }
+            }
+            ConfigAccountType::ValidatorName(x) => {
+                if x.len() > 32 {
+                    Err(InglError::InvalidData
+                        .utilize("Validator Namd Can't be more than 32 characters"))?
+                }
+            }
+            ConfigAccountType::TwitterHandle(x) => {
+                if x.len() > 32 {
+                    Err(InglError::InvalidData
+                        .utilize("Twitter Handle Can't be more than 32 characters"))?
+                }
+            }
+            ConfigAccountType::DiscordInvite(x) => {
+                if x.len() > 32 {
+                    Err(InglError::InvalidData
+                        .utilize("Discord Invite Can't be more than 32 characters"))?
+                }
+            }
+        };
+        Ok(())
+    }
+}
+
+#[derive(BorshSerialize, Clone, BorshDeserialize)]
+pub enum VoteAccountGovernance {
+    ValidatorID(Pubkey),
+    Commission(u8),
+}
+impl VoteAccountGovernance {
+    pub fn verify(&self) -> ProgramResult {
+        match self {
+            VoteAccountGovernance::ValidatorID(_) => (),
+            VoteAccountGovernance::Commission(x) => {
+                if *x > 100 {
+                    Err(InglError::InvalidData.utilize("Commision Can't exceed 100"))?
+                }
+            }
+        };
+        Ok(())
+    }
+}
+
+#[derive(BorshSerialize, Clone, BorshDeserialize)]
+pub enum GovernanceType {
+    ConfigAccount(ConfigAccountType),
+    ProgramUpgrade {
+        buffer_account: Pubkey,
+        code_link: String,
+    },
+    VoteAccountGovernance(VoteAccountGovernance),
+}
+impl GovernanceType {
+    pub fn verify(&self) -> ProgramResult {
+        match self {
+            GovernanceType::ConfigAccount(x) => x.verify(),
+            GovernanceType::ProgramUpgrade { .. } => Ok(()),
+            GovernanceType::VoteAccountGovernance(x) => x.verify(),
+        }
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Validate)]
+#[validation_phrase(crate::state::constants::GOVERNANCE_DATA_VAL_PHRASE)]
+pub struct GovernanceData {
+    pub validation_phrase: u32,
+    pub expiration_time: u32,
+    pub is_still_ongoing: bool,
+    pub votes: BTreeMap<u32, bool>,
+    pub governance_type: GovernanceType,
+}
+impl GovernanceData {
+    pub fn get_space(&self) -> usize {
+        let mut space = 4 + 4 + 1 + 4;
+        space += self.votes.len() * 5;
+
+        space += 1 + match self.governance_type.clone() {
+            GovernanceType::ConfigAccount(tmp) => match tmp {
+                ConfigAccountType::MaxPrimaryStake(_) => 1 + 4,
+                ConfigAccountType::NftHolderShare(_) => 1 + 1,
+                ConfigAccountType::InitialRedemptionFee(_) => 1 + 1,
+                ConfigAccountType::RedemptionFeeDuration(_) => 1 + 4,
+                ConfigAccountType::ValidatorName(item) => 1 + 4 + item.len(),
+                ConfigAccountType::TwitterHandle(item) => 1 + 4 + item.len(),
+                ConfigAccountType::DiscordInvite(item) => 1 + 4 + item.len(),
+            },
+            GovernanceType::ProgramUpgrade {
+                buffer_account: _,
+                code_link,
+            } => 32 + 4 + code_link.len(),
+
+            GovernanceType::VoteAccountGovernance(tmp) => match tmp {
+                VoteAccountGovernance::ValidatorID(_) => 1 + 32,
+                VoteAccountGovernance::Commission(_) => 1 + 1,
+            },
+        };
+
+        space
+    }
+
+    pub fn verify(&self) -> ProgramResult {
+        self.governance_type.verify()
+    }
+}
+
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct VoteInit {
     pub node_pubkey: Pubkey,
@@ -346,4 +488,31 @@ impl VoteState {
     pub fn min_lamports() -> u64 {
         Rent::get().unwrap().minimum_balance(Self::space())
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+pub enum UpgradeableLoaderState {
+    /// Account is not initialized.
+    Uninitialized,
+    /// A Buffer account.
+    Buffer {
+        /// Authority address
+        authority_address: Option<Pubkey>,
+        // The raw program data follows this serialized structure in the
+        // account's data.
+    },
+    /// An Program account.
+    Program {
+        /// Address of the ProgramData account.
+        programdata_address: Pubkey,
+    },
+    // A ProgramData account.
+    ProgramData {
+        /// Slot that the program was last modified.
+        slot: u64,
+        /// Address of the Program's upgrade authority.
+        upgrade_authority_address: Option<Pubkey>,
+        // The raw program data follows this serialized structure in the
+        // account's data.
+    },
 }
