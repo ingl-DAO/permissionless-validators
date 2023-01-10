@@ -1,8 +1,13 @@
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
-use crate::{instruction::InstructionEnum, log, processes::{init_processes::init::process_init,
-    validator_processes::create_vote_account::create_vote_account}
-    };
+use crate::{
+    instruction::InstructionEnum,
+    log,
+    processes::{
+        init_processes::init::process_init, nft_processes::mint_nft::process_mint_nft,
+        validator_processes::create_vote_account::create_vote_account,
+    },
+};
 
 pub fn process_instruction(
     program_id: &Pubkey,
@@ -47,6 +52,10 @@ pub fn process_instruction(
         )?,
         InstructionEnum::CreateVoteAccount { log_level } => {
             create_vote_account(program_id, accounts, log_level, false)?
+        }
+
+        InstructionEnum::MintNft { log_level } => {
+            process_mint_nft(program_id, accounts, log_level, false)?
         }
 
         _ => {

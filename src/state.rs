@@ -1,23 +1,30 @@
 #![allow(unused_parens)]
-use crate::{colored_log, error::InglError, utils::{assert_program_owned, ResultExt, AccountInfoHelpers}};
+use crate::{
+    colored_log,
+    error::InglError,
+    utils::{assert_program_owned, AccountInfoHelpers, ResultExt},
+};
 use borsh::{BorshDeserialize, BorshSerialize};
 use ingl_macros::Validate;
 use serde::{Deserialize, Serialize};
 use solana_program::{
     account_info::AccountInfo,
     borsh::try_from_slice_unchecked,
+    entrypoint::ProgramResult,
+    native_token::LAMPORTS_PER_SOL,
     program_error::ProgramError,
     pubkey::Pubkey,
-    sysvar::{rent::Rent, Sysvar}, entrypoint::ProgramResult, native_token::LAMPORTS_PER_SOL,
+    sysvar::{rent::Rent, Sysvar},
 };
 
-use crate::state::LogColors::{*};
+use crate::state::LogColors::*;
 pub const LOG_LEVEL: u8 = 5;
 
 pub mod constants {
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
     pub const GENERAL_ACCOUNT_VAL_PHRASE: u32 = 836_438_471;
+    pub const NFT_DATA_VAL_PHRASE: u32 = 271_832_912;
 
     pub const INGL_CONFIG_SEED: &[u8] = b"ingl_config";
     pub const URIS_ACCOUNT_SEED: &[u8] = b"uris_account";
@@ -29,10 +36,9 @@ pub mod constants {
     pub const AUTHORIZED_WITHDRAWER_KEY: &[u8] = b"authorized_withdrawer";
     pub const STAKE_ACCOUNT_KEY: &[u8] = b"stake_account";
     pub const PD_POOL_ACCOUNT_KEY: &[u8] = b"pd_pool_account";
+    pub const NFT_ACCOUNT_CONST: &[u8] = b"nft_account";
 
-
-
-    pub mod initializer{
+    pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
     }
 
@@ -61,37 +67,43 @@ pub struct ValidatorConfig {
     pub discord_invite: String,
 }
 
-impl ValidatorConfig{
-    pub fn validate_data(&self) -> ProgramResult{
-        if !self.is_validator_id_switchable && self.initial_redemption_fee != 0{
-            Err(InglError::InvalidConfigData.utilize("Validator id must be switchable if there exists any redemption fee"))?
+impl ValidatorConfig {
+    pub fn validate_data(&self) -> ProgramResult {
+        if !self.is_validator_id_switchable && self.initial_redemption_fee != 0 {
+            Err(InglError::InvalidConfigData
+                .utilize("Validator id must be switchable if there exists any redemption fee"))?
         }
-        if self.redemption_fee_duration > 86400 * 365 * 2{
-            Err(InglError::InvalidConfigData.utilize("Redemption fee duration must be less than 2 years"))?
+        if self.redemption_fee_duration > 86400 * 365 * 2 {
+            Err(InglError::InvalidConfigData
+                .utilize("Redemption fee duration must be less than 2 years"))?
         }
-        if self.nft_holders_share > 100{
+        if self.nft_holders_share > 100 {
             Err(InglError::InvalidConfigData.utilize("NFT holders share must be less than 100%"))?
         }
-        if self.initial_redemption_fee > 25{
-            Err(InglError::InvalidConfigData.utilize("Initial redemption fee must be less than 25%"))?
+        if self.initial_redemption_fee > 25 {
+            Err(InglError::InvalidConfigData
+                .utilize("Initial redemption fee must be less than 25%"))?
         }
-        if self.unit_backing < LAMPORTS_PER_SOL{
+        if self.unit_backing < LAMPORTS_PER_SOL {
             Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1 Sol"))?
         }
-        if self.max_primary_stake < LAMPORTS_PER_SOL{
-            Err(InglError::InvalidConfigData.utilize("Max primary stake must be greater than 1 Sol"))?
+        if self.max_primary_stake < LAMPORTS_PER_SOL {
+            Err(InglError::InvalidConfigData
+                .utilize("Max primary stake must be greater than 1 Sol"))?
         }
-        if self.validation_phrase != constants::INGL_CONFIG_VAL_PHRASE{
+        if self.validation_phrase != constants::INGL_CONFIG_VAL_PHRASE {
             Err(InglError::InvalidConfigData.utilize("Validation phrase is incorrect"))?
         }
-        if self.program_upgrade_threshold > 100{
-            Err(InglError::InvalidConfigData.utilize("Program upgrade threshold must be less than 100%"))?
+        if self.program_upgrade_threshold > 100 {
+            Err(InglError::InvalidConfigData
+                .utilize("Program upgrade threshold must be less than 100%"))?
         }
-        
-        if self.program_upgrade_threshold < 65{
-            Err(InglError::InvalidConfigData.utilize("Program upgrade threshold must be less than 65%"))?
+
+        if self.program_upgrade_threshold < 65 {
+            Err(InglError::InvalidConfigData
+                .utilize("Program upgrade threshold must be less than 65%"))?
         }
-        if self.creator_royalties > 500{
+        if self.creator_royalties > 500 {
             Err(InglError::InvalidConfigData.utilize("Creator royalties must be less than 5%"))?
         }
         Ok(())
@@ -128,7 +140,8 @@ impl ValidatorConfig{
             twitter_handle,
             discord_invite,
         };
-        i.validate_data().error_log("Error @ Config Data Validation")?;
+        i.validate_data()
+            .error_log("Error @ Config Data Validation")?;
         Ok(i)
     }
 }
@@ -150,13 +163,13 @@ impl UrisAccount {
             Err(InglError::InvalidUrisAccountData.utilize("Rarities must sum to 10000"))?
         }
         let mut new_rarities = Vec::new();
-        for i in rarities{
-            if i == 0{
+        for i in rarities {
+            if i == 0 {
                 Err(InglError::InvalidUrisAccountData.utilize("Rarities must be greater than 0"))?
             }
-            if new_rarities.len() == 0{
+            if new_rarities.len() == 0 {
                 new_rarities.push(i);
-            }else{
+            } else {
                 new_rarities.push(i + new_rarities[new_rarities.len() - 1]);
             }
         }
@@ -166,7 +179,8 @@ impl UrisAccount {
             rarities: new_rarities,
             uris: Vec::new(),
         };
-        i.validate_data().error_log("Error @ Uris Account Data Validation")?;
+        i.validate_data()
+            .error_log("Error @ Uris Account Data Validation")?;
         Ok(i)
     }
 
@@ -181,6 +195,34 @@ impl UrisAccount {
             Err(InglError::InvalidUrisAccountData.utilize("Rarities must sum to 10000"))?
         }
         Ok(())
+    }
+
+    pub fn set_uri(&mut self, rarity: u8, uris: Vec<String>) -> Result<usize, ProgramError> {
+        if rarity as usize > self.rarities.len() {
+            Err(InglError::InvalidUrisAccountData.utilize("Rarity is out of bounds"))?
+        }
+        if uris.len() == 0 {
+            Err(InglError::InvalidUrisAccountData.utilize("Uris vector is empty"))?
+        }
+        let mut space = 0;
+        for i in uris.iter() {
+            space += i.len() + 4;
+        }
+        if self.uris.len() == rarity.into() {
+            self.uris.push(uris);
+            space += 4;
+        } else {
+            self.uris[rarity as usize].extend(uris);
+        }
+        Ok(space)
+    }
+
+    pub fn get_uri(&self, seed: u16) -> (String, u8) {
+        let ind = self.rarities.iter().position(|x| *x > seed).unwrap();
+        (
+            self.uris[ind][seed as usize % self.uris[ind].len()].clone(),
+            ind as u8,
+        )
     }
 }
 
@@ -207,9 +249,9 @@ pub struct RebalancingData {
     pub is_rebalancing_active: bool,
 }
 
-impl Default for RebalancingData{
+impl Default for RebalancingData {
     fn default() -> Self {
-        Self{
+        Self {
             pending_validator_rewards: 0,
             unclaimed_validator_rewards: 0,
             is_rebalancing_active: false,
@@ -217,11 +259,10 @@ impl Default for RebalancingData{
     }
 }
 
-
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
 #[validation_phrase(crate::state::constants::GENERAL_ACCOUNT_VAL_PHRASE)]
 ///Creation Size: 90 Bytes
-pub struct GeneralData{
+pub struct GeneralData {
     pub validation_phrase: u32,
     pub mint_numeration: u32,
     pub pending_delegation_count: u32,
@@ -231,12 +272,12 @@ pub struct GeneralData{
     pub last_total_staked: u64,
     pub is_t_stake_initialized: bool,
     pub rebalancing_data: RebalancingData,
-    pub vote_rewards: Vec<VoteReward>,   
+    pub vote_rewards: Vec<VoteReward>,
 }
 
-impl Default for GeneralData{
+impl Default for GeneralData {
     fn default() -> Self {
-        Self{
+        Self {
             validation_phrase: constants::GENERAL_ACCOUNT_VAL_PHRASE,
             mint_numeration: 0,
             pending_delegation_count: 0,
@@ -249,6 +290,31 @@ impl Default for GeneralData{
             vote_rewards: Vec::new(),
         }
     }
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum FundsLocation {
+    Delegated,
+    Undelegated,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum GovernanceVote {
+    Yes,
+    No,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Validate)]
+#[validation_phrase(crate::state::constants::NFT_DATA_VAL_PHRASE)]
+//Creation Size:
+pub struct NftData {
+    pub validation_phrase: u32,
+    pub rarity: u8,
+    pub funds_location: FundsLocation,
+    pub numeration: u32,
+    pub date_created: u32,
+    pub all_withdraws: Vec<u64>,
+    pub all_votes: Vec<GovernanceVote>,
 }
 
 pub enum LogColors {
