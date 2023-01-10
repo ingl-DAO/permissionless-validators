@@ -148,17 +148,18 @@ impl ValidatorConfig {
 
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
 #[validation_phrase(crate::state::constants::URIS_ACCOUNT_VAL_PHRASE)]
-///Creation Size: 8
+///Creation Size: 12
 pub struct UrisAccount {
     pub validation_phrase: u32,
     ///This vector is used to define rarity of NFTs.
     /// i.e. if there are 3 rarities,  and the first rarity is 60%, the second is 30% and the third is 10%
     /// then the vector will be [6000, 9000, 10000]
     pub rarities: Vec<u16>,
+    pub rarity_names: Vec<String>,
     pub uris: Vec<Vec<String>>,
 }
 impl UrisAccount {
-    pub fn new(rarities: Vec<u16>) -> Result<Self, ProgramError> {
+    pub fn new(rarities: Vec<u16>, names: Vec<String>) -> Result<Self, ProgramError> {
         if rarities.iter().sum::<u16>() != 10000 {
             Err(InglError::InvalidUrisAccountData.utilize("Rarities must sum to 10000"))?
         }
@@ -176,6 +177,7 @@ impl UrisAccount {
 
         let i = Self {
             validation_phrase: constants::URIS_ACCOUNT_VAL_PHRASE,
+            rarity_names: names,
             rarities: new_rarities,
             uris: Vec::new(),
         };
@@ -193,6 +195,10 @@ impl UrisAccount {
         }
         if *self.rarities.last().unwrap() != 10000 {
             Err(InglError::InvalidUrisAccountData.utilize("Rarities must sum to 10000"))?
+        }
+        if self.rarity_names.len() != self.rarities.len() {
+            Err(InglError::InvalidUrisAccountData
+                .utilize("Rarity names vector length must be equal to rarities vector length"))?
         }
         Ok(())
     }

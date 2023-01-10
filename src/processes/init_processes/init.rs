@@ -28,6 +28,7 @@ pub fn process_init(
     program_upgrade_threshold: u8,
     creator_royalties: u16,
     rarities: Vec<u16>,
+    rarity_names: Vec<String>,
     twitter_handle: String,
     discord_invite: String,
     validator_name: String,
@@ -128,7 +129,12 @@ pub fn process_init(
     )?;
     log!(log_level, 2, "Created General Account ... ");
 
-    let uris_account_creation_size = 8;
+    let mut rarity_name_space = 0;
+    for i in rarity_names.iter() {
+        rarity_name_space += i.len() + 4;
+    }
+
+    let uris_account_creation_size = 8 + rarities.len()*2 + rarity_name_space;
     let uris_account_creation_lamports = rent_data.minimum_balance(uris_account_creation_size);
     log!(log_level, 2, "Creating Uris Account ... ");
     invoke_signed(
@@ -162,7 +168,7 @@ pub fn process_init(
 
     let general_data = GeneralData::default();
 
-    let uri_data = UrisAccount::new(rarities)?;
+    let uri_data = UrisAccount::new(rarities, rarity_names)?;
 
     log!(log_level, 0, "Created Main Data succesfully ... ");
 
