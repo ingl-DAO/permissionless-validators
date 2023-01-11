@@ -2,11 +2,13 @@ use solana_program::{
     pubkey::Pubkey, entrypoint::ProgramResult,
     sysvar::{self, clock::Clock, rent::Rent, Sysvar},
     account_info::{AccountInfo},
-    program_error::ProgramError,
+    program_error::ProgramError, program_pack::Pack,
 };
+use spl_associated_token_account::get_associated_token_address;
+use spl_token::state::Account;
 use std::slice::Iter;
 
-use crate::{error::InglError, state::LogColors::{*}, colored_log};
+use crate::{error::InglError, state::{LogColors::{*}, constants::NFT_ACCOUNT_CONST, NftData}, colored_log};
 pub trait PubkeyHelpers{
     fn assert_match(&self, a: &Pubkey) -> ProgramResult;
 }
@@ -216,4 +218,31 @@ impl<T> OptionExt<T> for Option<T> {
             _ => Err(InglError::OptionUnwrapError.utilize(message)),
         }
     }
+}
+
+pub fn verify_nft_ownership(payer_account_info: &AccountInfo, mint_account_info: &AccountInfo, nft_account_data_info: &AccountInfo, associated_token_account_info: &AccountInfo, program_id: &Pubkey) -> ProgramResult{
+
+    let (_nft_account_pubkey, _nft_account_bump) = nft_account_data_info.assert_seed(program_id, &[NFT_ACCOUNT_CONST.as_ref(), mint_account_info.key.as_ref()])
+    .error_log(&format!(
+        "failed to assert pda input to nft_account_info number"))?;
+    nft_account_data_info.assert_owner(program_id)
+        .error_log("nft_account_data_info is not owned by ingl's program")?;
+    mint_account_info.assert_owner(&spl_token::id())
+        .error_log("mint_account_info is not owned by spl_token")?;
+    associated_token_account_info.assert_owner(&spl_token::id())
+        .error_log("associated_token_account_info is not owned by spl_program")?;
+    payer_account_info.assert_signer()
+        .error_log("payer_account_info is not a signer")?;
+    let _nft_data = NftData::decode(nft_account_data_info)?;
+        
+    associated_token_account_info.assert_key_match(&get_associated_token_address(payer_account_info.key, mint_account_info.key),)
+    .error_log("sent associated_token_address is dissimilar to the expected one")?;
+    let associated_token_address_data =
+        Account::unpack(&associated_token_account_info.data.borrow())
+            .error_log("failed to unpack associated_token_account_info")?;
+    if associated_token_address_data.amount != 1 {
+        Err(InglError::NFTBalanceCheckError.utilize("associated_token_address_data.amount is not 1"))?
+    }
+
+    Ok(())
 }

@@ -19,24 +19,28 @@ use solana_program::{
     system_instruction,
 };
 
-pub fn create_program_upgrade_proposal(
+pub fn create_governance_proposal(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     governance_type: GovernanceType,
     log_level: u8,
     clock_is_from_account: bool,
     rent_is_from_account: bool,
-) -> ProgramResult {
+) -> ProgramResult { // TODO: Include NFT Ownership assertion.
     log!(
         log_level,
         4,
-        "Starting create_program_upgrade_proposal ... "
+        "Starting create_governance_proposal ... "
     );
     let account_info_iter = &mut accounts.iter();
     let payer_account_info = next_account_info(account_info_iter)?;
-    let ingl_team_account_info = next_account_info(account_info_iter)?;
+    let vote_account_info = next_account_info(account_info_iter)?;
     let proposal_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
+
+    vote_account_info.assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()]).error_log("failed at vote account seed assertion")?;
+    general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()]).error_log("failed at general account seed assertion")?;
+    general_account_info.assert_owner(program_id).error_log("failed at general account owner assertion")?;
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
 
@@ -97,7 +101,7 @@ pub fn create_program_upgrade_proposal(
     let space = governance_data.get_space();
     let lamports = rent_data.minimum_balance(space);
 
-    log!(log_level, 2, "Creating upgrade proposal account ...");
+    log!(log_level, 2, "Creating proposal account ...");
     invoke_signed(
         &system_instruction::create_account(
             payer_account_info.key,
@@ -113,17 +117,17 @@ pub fn create_program_upgrade_proposal(
             &[proposal_bump],
         ]],
     )
-    .error_log("failed to create upgrade proposal account")?;
-    log!(log_level, 2, "Created upgrade proposal account !!!");
+    .error_log("failed to create proposal account")?;
+    log!(log_level, 2, "Created proposal account !!!");
 
     log!(log_level, 2, "Transfering Spam prevention Sol ...");
     invoke(
         &system_instruction::transfer(
             payer_account_info.key,
-            ingl_team_account_info.key,
+            vote_account_info.key,
             LAMPORTS_PER_SOL.checked_mul(2).unwrap(),
         ),
-        &[payer_account_info.clone(), ingl_team_account_info.clone()],
+        &[payer_account_info.clone(), vote_account_info.clone()],
     )
     .error_log("failed to transfer spam prevention sol")?;
     log!(log_level, 2, "Transferred Spam prevention Sol !!!");
@@ -139,7 +143,7 @@ pub fn create_program_upgrade_proposal(
     log!(
         log_level,
         4,
-        "Done with create_program_upgrade_proposal !!!"
+        "Done with create_governance_proposal !!!"
     );
     Ok(())
 }

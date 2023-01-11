@@ -311,12 +311,6 @@ pub enum FundsLocation {
     Undelegated,
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
-pub enum GovernanceVote {
-    Yes,
-    No,
-}
-
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
 #[validation_phrase(crate::state::constants::NFT_DATA_VAL_PHRASE)]
 //Creation Size:
@@ -327,7 +321,7 @@ pub struct NftData {
     pub numeration: u32,
     pub date_created: u32,
     pub all_withdraws: Vec<u64>,
-    pub all_votes: Vec<GovernanceVote>,
+    pub all_votes: BTreeMap<u32, bool>,
 }
 
 pub enum LogColors {

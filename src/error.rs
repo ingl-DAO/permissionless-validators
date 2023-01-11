@@ -52,4 +52,7 @@ pub enum InglError {
 
     #[err("Invalid Data")]
     InvalidData, //14
+
+    #[err("Cannot Verify NFT Ownership")]
+    NFTBalanceCheckError, //15
 }
