@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     log,
     state::{constants::*, FundsLocation, GeneralData, NftData, UrisAccount, ValidatorConfig},
@@ -426,7 +428,7 @@ pub fn process_mint_nft(
         rarity: rarity,
         funds_location: FundsLocation::Delegated,
         all_withdraws: Vec::new(),
-        all_votes: Vec::new(),
+        all_votes: BTreeMap::new(),
     };
     nft_account_data
         .serialize(&mut &mut nft_account_info.data.borrow_mut()[..])

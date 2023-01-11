@@ -8,7 +8,7 @@ use solana_program::{
     system_instruction, sysvar,
 };
 
-use crate::state::{VoteInit, VoteState};
+use crate::state::{VoteInit, VoteState, GovernanceType};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
@@ -17,7 +17,7 @@ pub enum InstructionEnum {
     },
     Init {
         log_level: u8,
-        init_commision: u8,
+        init_commission: u8,
         max_primary_stake: u64,
         nft_holders_share: u8,
         initial_redemption_fee: u8,
@@ -53,7 +53,8 @@ pub enum InstructionEnum {
         log_level: u8,
     },
     UploadUris {
-        uris: Vec<Vec<String>>,
+        uris: Vec<String>,
+        rarity: u8,
         log_level: u8,
     },
     ResetConfig {
@@ -66,9 +67,12 @@ pub enum InstructionEnum {
         log_level: u8,
     },
     InitGovernance {
+        governance_type: GovernanceType,
         log_level: u8,
     },
     VoteGovernance {
+        numeration: u32,
+        vote: bool,
         log_level: u8,
     },
     FinalizeGovernance {

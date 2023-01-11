@@ -4,7 +4,11 @@ use crate::{
     instruction::InstructionEnum,
     log,
     processes::{
-        init_processes::init::process_init, nft_processes::mint_nft::process_mint_nft,
+        governance_processes::{
+            init_governance::create_governance_proposal, vote_governance::vote_governance,
+        },
+        init_processes::{init::process_init, upload_uris::upload_uris},
+        nft_processes::mint_nft::process_mint_nft,
         validator_processes::create_vote_account::create_vote_account,
     },
 };
@@ -17,7 +21,7 @@ pub fn process_instruction(
     match InstructionEnum::decode(data) {
         InstructionEnum::Init {
             log_level,
-            init_commision,
+            init_commission,
             max_primary_stake,
             nft_holders_share,
             initial_redemption_fee,
@@ -36,7 +40,7 @@ pub fn process_instruction(
             program_id,
             accounts,
             log_level,
-            init_commision,
+            init_commission,
             max_primary_stake,
             nft_holders_share,
             initial_redemption_fee,
@@ -59,6 +63,32 @@ pub fn process_instruction(
         InstructionEnum::MintNft { log_level } => {
             process_mint_nft(program_id, accounts, log_level, false)?
         }
+
+        InstructionEnum::UploadUris {
+            uris,
+            rarity,
+            log_level,
+        } => upload_uris(program_id, accounts, uris, rarity, log_level)?,
+
+        InstructionEnum::InitGovernance {
+            log_level,
+            governance_type,
+        } => create_governance_proposal(
+            program_id,
+            accounts,
+            governance_type,
+            log_level,
+            false,
+            false,
+        )?,
+
+        InstructionEnum::VoteGovernance {
+            log_level,
+            numeration,
+            vote,
+        } => vote_governance(
+            program_id, accounts, numeration, vote, log_level, false, false,
+        )?,
 
         _ => {
             log!(0, 5, "Instruction not yet Implemented");

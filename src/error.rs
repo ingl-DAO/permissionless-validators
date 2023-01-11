@@ -49,4 +49,10 @@ pub enum InglError {
 
     #[err("Failed to verify the Uris data")]
     InvalidUrisAccountData, //13
+
+    #[err("Invalid Data")]
+    InvalidData, //14
+
+    #[err("Cannot Verify NFT Ownership")]
+    NFTBalanceCheckError, //15
 }
