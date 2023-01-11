@@ -16,6 +16,7 @@ use solana_program::{
     native_token::LAMPORTS_PER_SOL,
     program_error::ProgramError,
     pubkey::Pubkey,
+    stake::state::StakeState,
     sysvar::{rent::Rent, Sysvar},
 };
 
@@ -23,6 +24,7 @@ use crate::state::LogColors::*;
 pub const LOG_LEVEL: u8 = 5;
 
 pub mod constants {
+
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
     pub const GENERAL_ACCOUNT_VAL_PHRASE: u32 = 836_438_471;
@@ -50,6 +52,10 @@ pub mod constants {
     pub mod config {
         solana_program::declare_id!("Config1111111111111111111111111111111111111");
     }
+}
+
+pub fn get_min_stake_account_lamports() -> u64 {
+    LAMPORTS_PER_SOL + Rent::default().minimum_balance(std::mem::size_of::<StakeState>() as usize)
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
@@ -89,10 +95,10 @@ impl ValidatorConfig {
             Err(InglError::InvalidConfigData
                 .utilize("Initial redemption fee must be less than 25%"))?
         }
-        if self.unit_backing < LAMPORTS_PER_SOL {
+        if self.unit_backing < get_min_stake_account_lamports() {
             Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1 Sol"))?
         }
-        if self.max_primary_stake < LAMPORTS_PER_SOL {
+        if self.max_primary_stake < get_min_stake_account_lamports() {
             Err(InglError::InvalidConfigData
                 .utilize("Max primary stake must be greater than 1 Sol"))?
         }
@@ -103,7 +109,6 @@ impl ValidatorConfig {
             Err(InglError::InvalidConfigData
                 .utilize("Program upgrade threshold must be less than 100%"))?
         }
-
         if self.proposal_quorum < 65 {
             Err(InglError::InvalidConfigData
                 .utilize("Program upgrade threshold must be less than 65%"))?
@@ -365,7 +370,7 @@ impl ConfigAccountType {
             ConfigAccountType::ValidatorName(x) => {
                 if x.len() > 32 {
                     Err(InglError::InvalidData
-                        .utilize("Validator Namd Can't be more than 32 characters"))?
+                        .utilize("Validator Name Can't be more than 32 characters"))?
                 }
             }
             ConfigAccountType::TwitterHandle(x) => {

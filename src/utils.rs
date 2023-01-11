@@ -1,15 +1,21 @@
 use solana_program::{
-    pubkey::Pubkey, entrypoint::ProgramResult,
+    account_info::AccountInfo,
+    entrypoint::ProgramResult,
+    program_error::ProgramError,
+    program_pack::Pack,
+    pubkey::Pubkey,
     sysvar::{self, clock::Clock, rent::Rent, Sysvar},
-    account_info::{AccountInfo},
-    program_error::ProgramError, program_pack::Pack,
 };
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::state::Account;
 use std::slice::Iter;
 
-use crate::{error::InglError, state::{LogColors::{*}, constants::NFT_ACCOUNT_CONST, NftData}, colored_log};
-pub trait PubkeyHelpers{
+use crate::{
+    colored_log,
+    error::InglError,
+    state::{constants::NFT_ACCOUNT_CONST, LogColors::*, NftData},
+};
+pub trait PubkeyHelpers {
     fn assert_match(&self, a: &Pubkey) -> ProgramResult;
 }
 
@@ -23,11 +29,15 @@ impl PubkeyHelpers for Pubkey {
     }
 }
 
-pub trait AccountInfoHelpers{
+pub trait AccountInfoHelpers {
     fn assert_key_match(&self, a: &Pubkey) -> ProgramResult;
     fn assert_owner(&self, a: &Pubkey) -> ProgramResult;
     fn assert_signer(&self) -> ProgramResult;
-    fn assert_seed(&self, program_id: &Pubkey, seed: &[&[u8]]) -> Result<(Pubkey, u8), ProgramError>;
+    fn assert_seed(
+        &self,
+        program_id: &Pubkey,
+        seed: &[&[u8]],
+    ) -> Result<(Pubkey, u8), ProgramError>;
 }
 
 impl AccountInfoHelpers for AccountInfo<'_> {
@@ -35,7 +45,9 @@ impl AccountInfoHelpers for AccountInfo<'_> {
         self.key.assert_match(a)
     }
     fn assert_owner(&self, a: &Pubkey) -> ProgramResult {
-        self.owner.assert_match(a).error_log("Error: @ owner assertion.")
+        self.owner
+            .assert_match(a)
+            .error_log("Error: @ owner assertion.")
     }
     fn assert_signer(&self) -> ProgramResult {
         if !self.is_signer {
@@ -43,9 +55,14 @@ impl AccountInfoHelpers for AccountInfo<'_> {
         }
         Ok(())
     }
-    fn assert_seed(&self, program_id: &Pubkey, seed: &[&[u8]]) -> Result<(Pubkey, u8), ProgramError> {
+    fn assert_seed(
+        &self,
+        program_id: &Pubkey,
+        seed: &[&[u8]],
+    ) -> Result<(Pubkey, u8), ProgramError> {
         let (key, bump) = Pubkey::find_program_address(seed, program_id);
-        self.assert_key_match(&key).error_log("Error: @ PDA Assertion")?;
+        self.assert_key_match(&key)
+            .error_log("Error: @ PDA Assertion")?;
         Ok((key, bump))
     }
 }
@@ -55,7 +72,6 @@ pub fn assert_program_owned(_: &AccountInfo) -> ProgramResult {
     panic!();
 }
 
-
 /// Get clock_data
 pub fn get_clock_data(
     iter: &mut Iter<AccountInfo>,
@@ -63,9 +79,11 @@ pub fn get_clock_data(
 ) -> Result<Clock, ProgramError> {
     (if clock_is_from_account {
         let sysvar_clock_info = iter.next().error_log("Not Enough Keys to get Clock_data")?;
-        sysvar_clock_info.assert_key_match(&sysvar::clock::id())
+        sysvar_clock_info
+            .assert_key_match(&sysvar::clock::id())
             .error_log("Error: Error @ sysvar_clock_info assertion.")?;
-        sysvar_clock_info.assert_owner(&sysvar::id())
+        sysvar_clock_info
+            .assert_owner(&sysvar::id())
             .error_log("Error: Error @ sysvar_clock_info ownership assertion.")?;
         Clock::from_account_info(&sysvar_clock_info)
     } else {
@@ -76,9 +94,11 @@ pub fn get_clock_data(
 
 /// Get clock_data from account info
 pub fn get_clock_data_from_account(sysvar_clock_info: &AccountInfo) -> Result<Clock, ProgramError> {
-    sysvar_clock_info.assert_key_match(&sysvar::clock::id())
+    sysvar_clock_info
+        .assert_key_match(&sysvar::clock::id())
         .error_log("Error: Error @ sysvar_clock_info assertion.")?;
-    sysvar_clock_info.assert_owner(&sysvar::id())
+    sysvar_clock_info
+        .assert_owner(&sysvar::id())
         .error_log("Error: Error @ sysvar_clock_info ownership assertion.")?;
     Clock::from_account_info(&sysvar_clock_info)
         .error_log("Error: There are some issues getting clock details")
@@ -91,9 +111,11 @@ pub fn get_rent_data(
 ) -> Result<Rent, ProgramError> {
     (if rent_is_from_account {
         let sysvar_rent_info = iter.next().error_log("Not Enough Keys to get rent_data")?;
-        sysvar_rent_info.assert_key_match(&sysvar::rent::id())
+        sysvar_rent_info
+            .assert_key_match(&sysvar::rent::id())
             .error_log("Error: Error @ sysvar_rent_info assertion.")?;
-        sysvar_rent_info.assert_owner(&sysvar::id())
+        sysvar_rent_info
+            .assert_owner(&sysvar::id())
             .error_log("Error: Error @ sysvar_clock_info ownership assertion.")?;
         Rent::from_account_info(&sysvar_rent_info)
     } else {
@@ -104,9 +126,11 @@ pub fn get_rent_data(
 
 /// Get rent_data from account info
 pub fn get_rent_data_from_account(sysvar_rent_info: &AccountInfo) -> Result<Rent, ProgramError> {
-    sysvar_rent_info.assert_key_match(&sysvar::rent::id())
+    sysvar_rent_info
+        .assert_key_match(&sysvar::rent::id())
         .error_log("Error: Error @ sysvar_rent_info assertion.")?;
-    sysvar_rent_info.assert_owner(&sysvar::id())
+    sysvar_rent_info
+        .assert_owner(&sysvar::id())
         .error_log("Error: Error @ sysvar_clock_info ownership assertion.")?;
     Rent::from_account_info(&sysvar_rent_info)
         .error_log("Error: There are some issues getting rent details")
@@ -220,28 +244,47 @@ impl<T> OptionExt<T> for Option<T> {
     }
 }
 
-pub fn verify_nft_ownership(payer_account_info: &AccountInfo, mint_account_info: &AccountInfo, nft_account_data_info: &AccountInfo, associated_token_account_info: &AccountInfo, program_id: &Pubkey) -> ProgramResult{
-
-    let (_nft_account_pubkey, _nft_account_bump) = nft_account_data_info.assert_seed(program_id, &[NFT_ACCOUNT_CONST.as_ref(), mint_account_info.key.as_ref()])
-    .error_log(&format!(
-        "failed to assert pda input to nft_account_info number"))?;
-    nft_account_data_info.assert_owner(program_id)
+pub fn verify_nft_ownership(
+    payer_account_info: &AccountInfo,
+    mint_account_info: &AccountInfo,
+    nft_account_data_info: &AccountInfo,
+    associated_token_account_info: &AccountInfo,
+    program_id: &Pubkey,
+) -> ProgramResult {
+    let (_nft_account_pubkey, _nft_account_bump) = nft_account_data_info
+        .assert_seed(
+            program_id,
+            &[NFT_ACCOUNT_CONST.as_ref(), mint_account_info.key.as_ref()],
+        )
+        .error_log(&format!(
+            "failed to assert pda input to nft_account_info number"
+        ))?;
+    nft_account_data_info
+        .assert_owner(program_id)
         .error_log("nft_account_data_info is not owned by ingl's program")?;
-    mint_account_info.assert_owner(&spl_token::id())
+    mint_account_info
+        .assert_owner(&spl_token::id())
         .error_log("mint_account_info is not owned by spl_token")?;
-    associated_token_account_info.assert_owner(&spl_token::id())
+    associated_token_account_info
+        .assert_owner(&spl_token::id())
         .error_log("associated_token_account_info is not owned by spl_program")?;
-    payer_account_info.assert_signer()
+    payer_account_info
+        .assert_signer()
         .error_log("payer_account_info is not a signer")?;
     let _nft_data = NftData::decode(nft_account_data_info)?;
-        
-    associated_token_account_info.assert_key_match(&get_associated_token_address(payer_account_info.key, mint_account_info.key),)
-    .error_log("sent associated_token_address is dissimilar to the expected one")?;
+
+    associated_token_account_info
+        .assert_key_match(&get_associated_token_address(
+            payer_account_info.key,
+            mint_account_info.key,
+        ))
+        .error_log("sent associated_token_address is dissimilar to the expected one")?;
     let associated_token_address_data =
         Account::unpack(&associated_token_account_info.data.borrow())
             .error_log("failed to unpack associated_token_account_info")?;
     if associated_token_address_data.amount != 1 {
-        Err(InglError::NFTBalanceCheckError.utilize("associated_token_address_data.amount is not 1"))?
+        Err(InglError::NFTBalanceCheckError
+            .utilize("associated_token_address_data.amount is not 1"))?
     }
 
     Ok(())
