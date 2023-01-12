@@ -77,6 +77,9 @@ pub fn init_rebalance(
     t_withdraw_info
         .assert_owner(&solana_program::system_program::id())
         .error_log("Error: @ asserting t_withdraw_info ownership")?;
+    config_account_info
+        .assert_owner(program_id)
+        .error_log("Error: @ asserting config_account_info ownership")?;
     let mut general_data = Box::new(GeneralData::decode(general_account_info)?);
     let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
 
