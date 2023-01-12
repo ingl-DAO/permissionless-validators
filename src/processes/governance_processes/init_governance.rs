@@ -4,7 +4,10 @@ use crate::{
     error::InglError,
     log,
     state::{constants::*, GeneralData, GovernanceData, GovernanceType, UpgradeableLoaderState},
-    utils::{get_clock_data, get_rent_data, AccountInfoHelpers, PubkeyHelpers, ResultExt},
+    utils::{
+        get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, PubkeyHelpers,
+        ResultExt, OptionExt,
+    },
 };
 
 use borsh::BorshSerialize;
@@ -19,28 +22,41 @@ use solana_program::{
     system_instruction,
 };
 
-pub fn create_governance_proposal(
+pub fn create_governance(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     governance_type: GovernanceType,
     log_level: u8,
     clock_is_from_account: bool,
     rent_is_from_account: bool,
-) -> ProgramResult { // TODO: Include NFT Ownership assertion.
-    log!(
-        log_level,
-        4,
-        "Starting create_governance_proposal ... "
-    );
+) -> ProgramResult {
+    log!(log_level, 4, "Starting create_governance_proposal ... ");
     let account_info_iter = &mut accounts.iter();
     let payer_account_info = next_account_info(account_info_iter)?;
     let vote_account_info = next_account_info(account_info_iter)?;
     let proposal_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
+    let mint_account_info = next_account_info(account_info_iter)?;
+    let associated_token_account_info = next_account_info(account_info_iter)?;
+    let nft_account_data_info = next_account_info(account_info_iter)?;
 
-    vote_account_info.assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()]).error_log("failed at vote account seed assertion")?;
-    general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()]).error_log("failed at general account seed assertion")?;
-    general_account_info.assert_owner(program_id).error_log("failed at general account owner assertion")?;
+    verify_nft_ownership(
+        payer_account_info,
+        mint_account_info,
+        nft_account_data_info,
+        associated_token_account_info,
+        program_id,
+    )?;
+
+    vote_account_info
+        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
+        .error_log("failed at vote account seed assertion")?;
+    general_account_info
+        .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
+        .error_log("failed at general account seed assertion")?;
+    general_account_info
+        .assert_owner(program_id)
+        .error_log("failed at general account owner assertion")?;
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
 
@@ -50,31 +66,37 @@ pub fn create_governance_proposal(
 
     let buffer_address_info;
 
-    match governance_type{
-        GovernanceType::ProgramUpgrade{buffer_account, code_link: _} =>{    
+    match governance_type {
+        GovernanceType::ProgramUpgrade {
+            buffer_account,
+            code_link: _,
+        } => {
             buffer_address_info = next_account_info(account_info_iter)?;
-            buffer_address_info.assert_key_match(&buffer_account).error_log("Error @ Buffer account must match the account info")?;
             buffer_address_info
-            .assert_owner(&bpf_loader_upgradeable::id())
-            .error_log("buffer_address_info is not owned by bpf_loader_upgradeable")?;
+                .assert_key_match(&buffer_account)
+                .error_log("Error @ Buffer account must match the account info")?;
+            buffer_address_info
+                .assert_owner(&bpf_loader_upgradeable::id())
+                .error_log("buffer_address_info is not owned by bpf_loader_upgradeable")?;
             let buffer_data: UpgradeableLoaderState =
                 bincode::deserialize(&buffer_address_info.data.borrow())
                     .expect("failed to deserialize buffer_address_info data");
             match buffer_data {
                 UpgradeableLoaderState::Buffer { authority_address } => {
-                    let (expected_authority_address, _epda_bump) =
-                        Pubkey::find_program_address(&[INGL_PROGRAM_AUTHORITY_KEY.as_ref()], program_id);
+                    let (expected_authority_address, _epda_bump) = Pubkey::find_program_address(
+                        &[INGL_PROGRAM_AUTHORITY_KEY.as_ref()],
+                        program_id,
+                    );
                     authority_address
-                        .unwrap()
+                        .error_log("Program must have an authority address")?
                         .assert_match(&expected_authority_address)
                         .error_log("Error @ Authority must the correct program's PDA")?;
                 }
                 _ => return Err(InglError::ExpectedBufferAccount.utilize("")),
             }
-        },
+        }
         _ => (),
     }
-
 
     let mut general_account_data = Box::new(GeneralData::decode(general_account_info)?);
     let (_proposal_id, proposal_bump) = proposal_account_info
@@ -93,10 +115,15 @@ pub fn create_governance_proposal(
         validation_phrase: GOVERNANCE_DATA_VAL_PHRASE,
         expiration_time: clock_data.unix_timestamp as u32 + 60 * 60 * 24 * 30,
         is_still_ongoing: true,
+        date_finalized: None,
+        did_proposal_pass: None,
+        is_proposal_executed: false,
         votes: BTreeMap::new(),
         governance_type: governance_type,
     };
-    governance_data.verify().error_log("governance_data is invalid")?;
+    governance_data
+        .verify()
+        .error_log("governance_data is invalid")?;
 
     let space = governance_data.get_space();
     let lamports = rent_data.minimum_balance(space);
@@ -140,10 +167,6 @@ pub fn create_governance_proposal(
     general_account_data
         .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
         .error_log("failed to serialize into global_gem_account_info")?;
-    log!(
-        log_level,
-        4,
-        "Done with create_governance_proposal !!!"
-    );
+    log!(log_level, 4, "Done with create_governance_proposal !!!");
     Ok(())
 }

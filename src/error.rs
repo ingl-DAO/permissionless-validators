@@ -55,4 +55,7 @@ pub enum InglError {
 
     #[err("Cannot Verify NFT Ownership")]
     NFTBalanceCheckError, //15
+
+    #[err("Not Enough Votes to pass the proposal")]
+    NotEnoughVotes, //16
 }
