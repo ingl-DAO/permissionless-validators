@@ -45,6 +45,8 @@ pub mod constants {
     pub const INGL_PROGRAM_AUTHORITY_KEY: &[u8] = b"ingl_program_authority";
     pub const INGL_PROPOSAL_KEY: &[u8] = b"ingl_proposal";
     pub const VALIDATOR_ID_SEED: &[u8] = b"validator_ID___________________";
+    pub const T_STAKE_ACCOUNT_KEY: &[u8] = b"t_stake_account_key";
+    pub const T_WITHDRAW_KEY: &[u8] = b"t_withdraw_key";
 
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
@@ -314,8 +316,8 @@ impl Default for RebalancingData {
 pub struct GeneralData {
     pub validation_phrase: u32,
     pub mint_numeration: u32,
-    pub pending_delegation_count: u32,
-    pub dealloced_count: u32,
+    pub pending_delegation_total: u64,
+    pub dealloced: u64,
     pub total_delegated: u32,
     pub last_withdraw_epoch: u64,
     pub last_total_staked: u64,
@@ -332,8 +334,8 @@ impl Default for GeneralData {
         Self {
             validation_phrase: constants::GENERAL_ACCOUNT_VAL_PHRASE,
             mint_numeration: 0,
-            pending_delegation_count: 0,
-            dealloced_count: 0,
+            pending_delegation_total: 0,
+            dealloced: 0,
             total_delegated: 0,
             last_withdraw_epoch: 0,
             last_total_staked: 0,

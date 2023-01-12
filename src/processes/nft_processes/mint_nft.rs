@@ -118,7 +118,8 @@ pub fn process_mint_nft(
     let uris_data = Box::new(UrisAccount::decode(&uris_account_info)?);
     let mut general_data = Box::new(GeneralData::decode(&general_account_info)?);
 
-    let (vote_account_key, _va_bump) = Pubkey::find_program_address(&[VOTE_ACCOUNT_KEY.as_ref()], program_id);
+    let (vote_account_key, _va_bump) =
+        Pubkey::find_program_address(&[VOTE_ACCOUNT_KEY.as_ref()], program_id);
 
     let mpl_token_metadata_id = mpl_token_metadata::id();
     let metadata_seeds = &[
@@ -200,10 +201,10 @@ pub fn process_mint_nft(
     general_data.mint_numeration += 1;
     general_data.total_delegated += 1;
 
-    if general_data.dealloced_count >= 1 {
-        general_data.dealloced_count -= 1;
+    if general_data.dealloced >= mint_cost {
+        general_data.dealloced -= mint_cost;
     } else {
-        general_data.pending_delegation_count += 1;
+        general_data.pending_delegation_total += mint_cost;
     }
 
     log!(log_level, 2, "transfer the mint cost to the minting pool");
