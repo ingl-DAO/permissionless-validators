@@ -40,6 +40,7 @@ pub fn process_instruction(
             discord_invite,
             validator_name,
             collection_uri,
+            website,
         } => process_init(
             program_id,
             accounts,
@@ -59,6 +60,7 @@ pub fn process_instruction(
             discord_invite,
             validator_name,
             collection_uri,
+            website,
         )?,
         InstructionEnum::CreateVoteAccount { log_level } => {
             create_vote_account(program_id, accounts, log_level, false)?

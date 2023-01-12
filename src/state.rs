@@ -53,6 +53,11 @@ pub mod constants {
     pub mod config {
         solana_program::declare_id!("Config1111111111111111111111111111111111111");
     }
+
+    pub mod team {
+        pub const TEAM_SHARE: u64 = 10;
+        solana_program::declare_id!("Team111111111111111111111111111111111111111");
+    }
 }
 
 pub fn get_min_stake_account_lamports() -> u64 {
@@ -77,6 +82,7 @@ pub struct ValidatorConfig {
     pub validator_name: String,
     pub twitter_handle: String,
     pub discord_invite: String,
+    pub website: String,
 }
 
 impl ValidatorConfig {
@@ -117,8 +123,8 @@ impl ValidatorConfig {
             Err(InglError::InvalidConfigData
                 .utilize("Program upgrade threshold must be less than 65%"))?
         }
-        if self.creator_royalties > 500 {
-            Err(InglError::InvalidConfigData.utilize("Creator royalties must be less than 5%"))?
+        if self.creator_royalties > 200 {
+            Err(InglError::InvalidConfigData.utilize("Creator royalties must be less than 2%"))?
         }
         if self.commission > 100 {
             Err(InglError::InvalidConfigData.utilize("Commission must be less than 100%"))?
@@ -134,6 +140,10 @@ impl ValidatorConfig {
         if self.discord_invite.len() > 32 {
             Err(InglError::InvalidConfigData
                 .utilize("Discord invite must be less than 32 characters"))?
+        }
+        if self.website.len() > 64 {
+            Err(InglError::InvalidConfigData
+                .utilize("Website must be less than 32 characters"))?
         }
         Ok(())
     }
@@ -152,6 +162,7 @@ impl ValidatorConfig {
         validator_name: String,
         twitter_handle: String,
         discord_invite: String,
+        website: String,
     ) -> Result<Self, ProgramError> {
         let i = Self {
             validation_phrase: constants::INGL_CONFIG_VAL_PHRASE,
@@ -168,6 +179,7 @@ impl ValidatorConfig {
             validator_name,
             twitter_handle,
             discord_invite,
+            website,
         };
         i.validate_data()
             .error_log("Error @ Config Data Validation")?;
@@ -262,15 +274,17 @@ impl UrisAccount {
 }
 
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]
-///Creation Size: 24 bytes.
+///Creation Size: 32 bytes.
 /// This Stores the Cummulative of rewards for a specific vote account for the epoch the process_rewards instruction was run.
 pub struct VoteReward {
     /// This is the epoch the reward was earned.
     pub epoch_number: u64,
     /// This is the amount of rewards earned.
     pub total_reward: u64,
-    /// This is the total primary stake of the vote account.
-    pub total_stake: u64,
+    /// This is the total primary staked nft count of the vote account.
+    pub total_stake: u32,
+    /// This is the total reward that will be distributed to primary stakers.
+    pub nft_holders_reward: u64,
 }
 
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]

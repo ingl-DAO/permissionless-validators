@@ -118,6 +118,8 @@ pub fn process_mint_nft(
     let uris_data = Box::new(UrisAccount::decode(&uris_account_info)?);
     let mut general_data = Box::new(GeneralData::decode(&general_account_info)?);
 
+    let (vote_account_key, _va_bump) = Pubkey::find_program_address(&[VOTE_ACCOUNT_KEY.as_ref()], program_id);
+
     let mpl_token_metadata_id = mpl_token_metadata::id();
     let metadata_seeds = &[
         PREFIX.as_bytes(),
@@ -280,6 +282,12 @@ pub fn process_mint_nft(
     creators.push(Creator {
         address: mint_authority_key,
         verified: true,
+        share: 0,
+    });
+
+    creators.push(Creator {
+        address: vote_account_key,
+        verified: false,
         share: 100,
     });
 
