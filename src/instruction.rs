@@ -38,7 +38,7 @@ pub enum InstructionEnum {
         log_level: u8,
     },
     NFTWithdraw {
-        cnt: u32,
+        cnt: usize,
         log_level: u8,
     },
     ProcessRewards {
