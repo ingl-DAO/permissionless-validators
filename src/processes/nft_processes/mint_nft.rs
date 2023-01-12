@@ -193,7 +193,7 @@ pub fn process_mint_nft(
     let space = 82;
     let rent_lamports = rent_data.minimum_balance(space);
 
-    let mint_cost = config_data.unit_backing;
+    let mint_cost = config_data.unit_stake;
 
     general_data.mint_numeration += 1;
     general_data.total_delegated += 1;

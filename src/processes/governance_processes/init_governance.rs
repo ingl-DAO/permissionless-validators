@@ -6,7 +6,7 @@ use crate::{
     state::{constants::*, GeneralData, GovernanceData, GovernanceType, UpgradeableLoaderState},
     utils::{
         get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, PubkeyHelpers,
-        ResultExt,
+        ResultExt, OptionExt,
     },
 };
 
@@ -22,7 +22,7 @@ use solana_program::{
     system_instruction,
 };
 
-pub fn create_governance_proposal(
+pub fn create_governance(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     governance_type: GovernanceType,
@@ -88,7 +88,7 @@ pub fn create_governance_proposal(
                         program_id,
                     );
                     authority_address
-                        .unwrap()
+                        .error_log("Program must have an authority address")?
                         .assert_match(&expected_authority_address)
                         .error_log("Error @ Authority must the correct program's PDA")?;
                 }
@@ -115,6 +115,9 @@ pub fn create_governance_proposal(
         validation_phrase: GOVERNANCE_DATA_VAL_PHRASE,
         expiration_time: clock_data.unix_timestamp as u32 + 60 * 60 * 24 * 30,
         is_still_ongoing: true,
+        date_finalized: None,
+        did_proposal_pass: None,
+        is_proposal_executed: false,
         votes: BTreeMap::new(),
         governance_type: governance_type,
     };

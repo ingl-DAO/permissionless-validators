@@ -1,11 +1,15 @@
-use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
+use solana_program::{
+    account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    pubkey::Pubkey,
+};
 
 use crate::{
     instruction::InstructionEnum,
     log,
     processes::{
         governance_processes::{
-            init_governance::create_governance_proposal, vote_governance::vote_governance,
+            execute_governance::execute_governance, finalize_governance::finalize_governance,
+            init_governance::create_governance, vote_governance::vote_governance,
         },
         init_processes::{init::process_init, upload_uris::upload_uris},
         nft_processes::mint_nft::process_mint_nft,
@@ -73,7 +77,7 @@ pub fn process_instruction(
         InstructionEnum::InitGovernance {
             log_level,
             governance_type,
-        } => create_governance_proposal(
+        } => create_governance(
             program_id,
             accounts,
             governance_type,
@@ -90,10 +94,19 @@ pub fn process_instruction(
             program_id, accounts, numeration, vote, log_level, false, false,
         )?,
 
-        
+        InstructionEnum::FinalizeGovernance {
+            numeration,
+            log_level,
+        } => finalize_governance(program_id, accounts, numeration, log_level)?,
+
+        InstructionEnum::ExecuteGovernance {
+            numeration,
+            log_level,
+        } => execute_governance(program_id, accounts, numeration, log_level)?,
 
         _ => {
             log!(0, 5, "Instruction not yet Implemented");
+            return Err(ProgramError::InvalidInstructionData);
         }
     }
 
