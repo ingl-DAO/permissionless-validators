@@ -48,7 +48,7 @@ pub fn process_mint_nft(
     let ingl_config_account_info = next_account_info(account_info_iter)?;
     let uris_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
-    let clock = get_clock_data(account_info_iter, clock_is_from_account)?;
+    let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
     let rent_data = get_rent_data_from_account(sysvar_rent_account_info)?;
 
     log!(log_level, 0, "Done with Main account Collection ...");
@@ -118,6 +118,9 @@ pub fn process_mint_nft(
     let uris_data = Box::new(UrisAccount::decode(&uris_account_info)?);
     let mut general_data = Box::new(GeneralData::decode(&general_account_info)?);
 
+    let (vote_account_key, _va_bump) =
+        Pubkey::find_program_address(&[VOTE_ACCOUNT_KEY.as_ref()], program_id);
+
     let mpl_token_metadata_id = mpl_token_metadata::id();
     let metadata_seeds = &[
         PREFIX.as_bytes(),
@@ -168,7 +171,7 @@ pub fn process_mint_nft(
     log!(log_level, 0, "Done with main assertions");
 
     // Getting timestamp
-    let current_timestamp = clock.unix_timestamp as u32;
+    let current_timestamp = clock_data.unix_timestamp as u32;
 
     let space = 130;
     let rent_lamports = rent_data.minimum_balance(space);
@@ -198,10 +201,10 @@ pub fn process_mint_nft(
     general_data.mint_numeration += 1;
     general_data.total_delegated += 1;
 
-    if general_data.dealloced_count >= 1 {
-        general_data.dealloced_count -= 1;
+    if general_data.dealloced >= mint_cost {
+        general_data.dealloced -= mint_cost;
     } else {
-        general_data.pending_delegation_count += 1;
+        general_data.pending_delegation_total += mint_cost;
     }
 
     log!(log_level, 2, "transfer the mint cost to the minting pool");
@@ -280,6 +283,12 @@ pub fn process_mint_nft(
     creators.push(Creator {
         address: mint_authority_key,
         verified: true,
+        share: 0,
+    });
+
+    creators.push(Creator {
+        address: vote_account_key,
+        verified: false,
         share: 100,
     });
 
@@ -429,6 +438,8 @@ pub fn process_mint_nft(
         funds_location: FundsLocation::Delegated,
         all_withdraws: Vec::new(),
         all_votes: BTreeMap::new(),
+        last_withdrawal_epoch: None,
+        last_delegation_epoch: Some(clock_data.epoch),
     };
     nft_account_data
         .serialize(&mut &mut nft_account_info.data.borrow_mut()[..])

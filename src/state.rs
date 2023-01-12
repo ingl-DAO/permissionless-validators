@@ -45,6 +45,8 @@ pub mod constants {
     pub const INGL_PROGRAM_AUTHORITY_KEY: &[u8] = b"ingl_program_authority";
     pub const INGL_PROPOSAL_KEY: &[u8] = b"ingl_proposal";
     pub const VALIDATOR_ID_SEED: &[u8] = b"validator_ID___________________";
+    pub const T_STAKE_ACCOUNT_KEY: &[u8] = b"t_stake_account_key";
+    pub const T_WITHDRAW_KEY: &[u8] = b"t_withdraw_key";
 
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
@@ -52,6 +54,11 @@ pub mod constants {
 
     pub mod config {
         solana_program::declare_id!("Config1111111111111111111111111111111111111");
+    }
+
+    pub mod team {
+        pub const TEAM_SHARE: u64 = 10;
+        solana_program::declare_id!("Team111111111111111111111111111111111111111");
     }
 }
 
@@ -77,6 +84,7 @@ pub struct ValidatorConfig {
     pub validator_name: String,
     pub twitter_handle: String,
     pub discord_invite: String,
+    pub website: String,
 }
 
 impl ValidatorConfig {
@@ -117,8 +125,8 @@ impl ValidatorConfig {
             Err(InglError::InvalidConfigData
                 .utilize("Program upgrade threshold must be less than 65%"))?
         }
-        if self.creator_royalties > 500 {
-            Err(InglError::InvalidConfigData.utilize("Creator royalties must be less than 5%"))?
+        if self.creator_royalties > 200 {
+            Err(InglError::InvalidConfigData.utilize("Creator royalties must be less than 2%"))?
         }
         if self.commission > 100 {
             Err(InglError::InvalidConfigData.utilize("Commission must be less than 100%"))?
@@ -134,6 +142,10 @@ impl ValidatorConfig {
         if self.discord_invite.len() > 32 {
             Err(InglError::InvalidConfigData
                 .utilize("Discord invite must be less than 32 characters"))?
+        }
+        if self.website.len() > 64 {
+            Err(InglError::InvalidConfigData
+                .utilize("Website must be less than 32 characters"))?
         }
         Ok(())
     }
@@ -152,6 +164,7 @@ impl ValidatorConfig {
         validator_name: String,
         twitter_handle: String,
         discord_invite: String,
+        website: String,
     ) -> Result<Self, ProgramError> {
         let i = Self {
             validation_phrase: constants::INGL_CONFIG_VAL_PHRASE,
@@ -168,6 +181,7 @@ impl ValidatorConfig {
             validator_name,
             twitter_handle,
             discord_invite,
+            website,
         };
         i.validate_data()
             .error_log("Error @ Config Data Validation")?;
@@ -262,15 +276,17 @@ impl UrisAccount {
 }
 
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]
-///Creation Size: 24 bytes.
+///Creation Size: 32 bytes.
 /// This Stores the Cummulative of rewards for a specific vote account for the epoch the process_rewards instruction was run.
 pub struct VoteReward {
     /// This is the epoch the reward was earned.
     pub epoch_number: u64,
     /// This is the amount of rewards earned.
     pub total_reward: u64,
-    /// This is the total primary stake of the vote account.
-    pub total_stake: u64,
+    /// This is the total primary staked nft count of the vote account.
+    pub total_stake: u32,
+    /// This is the total reward that will be distributed to primary stakers.
+    pub nft_holders_reward: u64,
 }
 
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]
@@ -300,8 +316,8 @@ impl Default for RebalancingData {
 pub struct GeneralData {
     pub validation_phrase: u32,
     pub mint_numeration: u32,
-    pub pending_delegation_count: u32,
-    pub dealloced_count: u32,
+    pub pending_delegation_total: u64,
+    pub dealloced: u64,
     pub total_delegated: u32,
     pub last_withdraw_epoch: u64,
     pub last_total_staked: u64,
@@ -318,8 +334,8 @@ impl Default for GeneralData {
         Self {
             validation_phrase: constants::GENERAL_ACCOUNT_VAL_PHRASE,
             mint_numeration: 0,
-            pending_delegation_count: 0,
-            dealloced_count: 0,
+            pending_delegation_total: 0,
+            dealloced: 0,
             total_delegated: 0,
             last_withdraw_epoch: 0,
             last_total_staked: 0,
@@ -348,6 +364,8 @@ pub struct NftData {
     pub funds_location: FundsLocation,
     pub numeration: u32,
     pub date_created: u32,
+    pub last_withdrawal_epoch: Option<u64>,
+    pub last_delegation_epoch: Option<u64>,
     pub all_withdraws: Vec<u64>,
     pub all_votes: BTreeMap<u32, bool>,
 }

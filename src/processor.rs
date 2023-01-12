@@ -13,7 +13,7 @@ use crate::{
         },
         init_processes::{init::process_init, upload_uris::upload_uris},
         nft_processes::mint_nft::process_mint_nft,
-        validator_processes::create_vote_account::create_vote_account,
+        validator_processes::create_vote_account::create_vote_account, rewards_processes::{nft_withdraw::nft_withdraw, process_rewards::process_rewards, init_rebalance::init_rebalance, finalize_rebalance::finalize_rebalance},
     },
 };
 
@@ -40,6 +40,7 @@ pub fn process_instruction(
             discord_invite,
             validator_name,
             collection_uri,
+            website,
         } => process_init(
             program_id,
             accounts,
@@ -59,6 +60,7 @@ pub fn process_instruction(
             discord_invite,
             validator_name,
             collection_uri,
+            website,
         )?,
         InstructionEnum::CreateVoteAccount { log_level } => {
             create_vote_account(program_id, accounts, log_level, false)?
@@ -103,6 +105,14 @@ pub fn process_instruction(
             numeration,
             log_level,
         } => execute_governance(program_id, accounts, numeration, log_level)?,
+
+        InstructionEnum::NFTWithdraw { cnt, log_level } => nft_withdraw(program_id, accounts, cnt, log_level, false, false)?,
+
+        InstructionEnum::ProcessRewards { log_level } => process_rewards(program_id, accounts, log_level, false, false)?,
+
+        InstructionEnum::InitRebalance { log_level } => init_rebalance(program_id, accounts, log_level)?,
+
+        InstructionEnum::FinalizeRebalance { log_level } => finalize_rebalance(program_id, accounts, log_level)?,
 
         _ => {
             log!(0, 5, "Instruction not yet Implemented");

@@ -33,6 +33,7 @@ pub fn process_init(
     discord_invite: String,
     validator_name: String,
     collection_uri: String,
+    website: String,
 ) -> ProgramResult {
     log!(log_level, 4, "Init Process Started");
     let account_info_iter = &mut accounts.iter();
@@ -164,6 +165,7 @@ pub fn process_init(
         validator_name,
         twitter_handle,
         discord_invite,
+        website,
     )?;
 
     let general_data = GeneralData::default();

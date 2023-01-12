@@ -32,17 +32,15 @@ pub enum InstructionEnum {
         discord_invite: String,
         validator_name: String,
         collection_uri: String,
+        website: String,
     },
     Redeem {
         log_level: u8,
     },
-    ValidatorWithdraw {
+    NFTWithdraw {
+        cnt: usize,
         log_level: u8,
     },
-    NFTWithdraw {
-        cnt: u32,
-        log_level: u8,
-    }, //To be changed to U8
     ProcessRewards {
         log_level: u8,
     },
