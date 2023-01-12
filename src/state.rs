@@ -362,6 +362,8 @@ pub struct NftData {
     pub funds_location: FundsLocation,
     pub numeration: u32,
     pub date_created: u32,
+    pub last_withdrawal_epoch: Option<u64>,
+    pub last_delegation_epoch: Option<u64>,
     pub all_withdraws: Vec<u64>,
     pub all_votes: BTreeMap<u32, bool>,
 }

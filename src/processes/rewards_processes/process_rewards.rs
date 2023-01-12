@@ -43,6 +43,21 @@ pub fn process_rewards(
 
     vote_account_info.assert_owner(&solana_program::vote::program::id())
         .error_log("Error @ vote_account ownership assertion")?;
+    vote_account_info.assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
+        .error_log("Error @ vote_account seed assertion")?;
+    
+    config_account_info.assert_owner(program_id)
+        .error_log("Error @ config_account ownership assertion")?;
+    general_account_info.assert_owner(program_id)
+        .error_log("Error @ general_account ownership assertion")?;
+    
+    config_account_info.assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
+        .error_log("Error @ config_account seed assertion")?;
+    general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
+        .error_log("Error @ general_account seed assertion")?;
+    
+    ingl_team_account_info.assert_key_match(&team::id())
+        .error_log("Error @ ingl_team_account key match assertion")?;
 
     let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
     let mut general_data = Box::new(GeneralData::decode(general_account_info)?);
