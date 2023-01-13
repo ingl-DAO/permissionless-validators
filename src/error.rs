@@ -58,4 +58,7 @@ pub enum InglError {
 
     #[err("Not Enough Votes to pass the proposal")]
     NotEnoughVotes, //16
+
+    #[err("Uris Account is too big")]
+    UrisAccountTooBig, //17
 }

@@ -96,40 +96,6 @@ pub fn process_init(
     )
     .error_log("Error: @mint_collection creation")?;
 
-    let config_account_creation_size =
-        15 + 4 + 4 + 4 + discord_invite.len() + twitter_handle.len() + validator_name.len();
-    let config_account_creation_lamports = rent_data.minimum_balance(config_account_creation_size);
-    log!(log_level, 2, "Creating Config Account ... ");
-    invoke_signed(
-        &system_instruction::create_account(
-            payer_account_info.key,
-            &config_key,
-            config_account_creation_lamports,
-            config_account_creation_size as u64,
-            program_id,
-        ),
-        &[payer_account_info.clone(), config_account_info.clone()],
-        &[&[INGL_CONFIG_SEED, &[config_bump]]],
-    )?;
-    log!(log_level, 2, "Created Config Account ... ");
-
-    let general_account_creation_size = 90;
-    let general_account_creation_lamports =
-        rent_data.minimum_balance(general_account_creation_size);
-    log!(log_level, 2, "Creating General Account ... ");
-    invoke_signed(
-        &system_instruction::create_account(
-            payer_account_info.key,
-            &general_account_key,
-            general_account_creation_lamports,
-            general_account_creation_size as u64,
-            program_id,
-        ),
-        &[payer_account_info.clone(), general_account_info.clone()],
-        &[&[GENERAL_ACCOUNT_SEED, &[general_account_bump]]],
-    )?;
-    log!(log_level, 2, "Created General Account ... ");
-
     let mut rarity_name_space = 0;
     for i in rarity_names.iter() {
         rarity_name_space += i.len() + 4;
@@ -169,6 +135,39 @@ pub fn process_init(
     )?;
 
     let general_data = GeneralData::default();
+
+    let config_account_creation_size = config_data.get_space();
+    let config_account_creation_lamports = rent_data.minimum_balance(config_account_creation_size);
+    log!(log_level, 2, "Creating Config Account ... ");
+    invoke_signed(
+        &system_instruction::create_account(
+            payer_account_info.key,
+            &config_key,
+            config_account_creation_lamports,
+            config_account_creation_size as u64,
+            program_id,
+        ),
+        &[payer_account_info.clone(), config_account_info.clone()],
+        &[&[INGL_CONFIG_SEED, &[config_bump]]],
+    )?;
+    log!(log_level, 2, "Created Config Account ... ");
+
+    let general_account_creation_size = general_data.get_space();
+    let general_account_creation_lamports =
+        rent_data.minimum_balance(general_account_creation_size);
+    log!(log_level, 2, "Creating General Account ... ");
+    invoke_signed(
+        &system_instruction::create_account(
+            payer_account_info.key,
+            &general_account_key,
+            general_account_creation_lamports,
+            general_account_creation_size as u64,
+            program_id,
+        ),
+        &[payer_account_info.clone(), general_account_info.clone()],
+        &[&[GENERAL_ACCOUNT_SEED, &[general_account_bump]]],
+    )?;
+    log!(log_level, 2, "Created General Account ... ");
 
     let uri_data = UrisAccount::new(rarities, rarity_names)?;
 

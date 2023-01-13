@@ -1,7 +1,7 @@
 use crate::{
     log,
     state::{constants::*, UrisAccount, ValidatorConfig},
-    utils::{AccountInfoHelpers, ResultExt}, error::InglError,
+    utils::{AccountInfoHelpers, ResultExt},
 };
 
 use anchor_lang::prelude::{Rent, SolanaSysvar};
@@ -10,18 +10,12 @@ use borsh::BorshSerialize;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
-    program::invoke,
+    program::invoke_signed,
     pubkey::Pubkey,
     system_instruction,
 };
 
-pub fn upload_uris(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    uris: Vec<String>,
-    rarity: u8,
-    log_level: u8,
-) -> ProgramResult {
+pub fn reset_uris(program_id: &Pubkey, accounts: &[AccountInfo], log_level: u8) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let payer_account_info = next_account_info(account_info_iter)?;
     let config_account_info = next_account_info(account_info_iter)?;
@@ -33,7 +27,7 @@ pub fn upload_uris(
     uris_account_info
         .assert_owner(program_id)
         .error_log("Error: uris_account is not owned by the program")?;
-    uris_account_info
+    let (_uris_account_key, uris_account_bump) = uris_account_info
         .assert_seed(program_id, &[URIS_ACCOUNT_SEED.as_ref()])
         .error_log("Error: uris_account is not the config account")?;
     config_account_info
@@ -48,47 +42,27 @@ pub fn upload_uris(
         .assert_key_match(&config.validator_id)
         .error_log("Error: Payer account is not the validator_id")?;
 
-    let mut uris_account_data = Box::new(UrisAccount::decode(uris_account_info)?);
-    log!(
-        log_level,
-        0,
-        "Uploading URIs {:?} for rarity {}",
-        uris,
-        rarity,
-    );
-    let incremented_space = uris_account_data
-        .set_uri(rarity, uris)
-        .error_log("Error @ uri setting")?;
-    log!(log_level, 2, "Uploaded URIs for generation !!");
-
-    let space = uris_account_info.data_len() + incremented_space;
-    if space > 16000{
-        Err(InglError::UrisAccountTooBig.utilize("Uploaded too many images. Consider Reseting and selecting the best and less images"))?
-    }
-    let lamports = Rent::get()?.minimum_balance(space)
-        - Rent::get()?.minimum_balance(uris_account_info.data_len());
+    let uris_account_data = UrisAccount::default();
+    let space = 16;
+    let lamports = Rent::get()?.minimum_balance(uris_account_info.data_len())
+        - Rent::get()?.minimum_balance(space);
     log!(
         log_level,
         2,
-        "Adding {} lamports to config account",
+        "Transferring {} lamports to payer account",
         lamports
     );
-    invoke(
-        &system_instruction::transfer(payer_account_info.key, uris_account_info.key, lamports),
-        &[payer_account_info.clone(), uris_account_info.clone()],
+    invoke_signed(
+        &system_instruction::transfer(uris_account_info.key, payer_account_info.key, lamports),
+        &[uris_account_info.clone(), payer_account_info.clone()],
+        &[&[URIS_ACCOUNT_SEED.as_ref(), &[uris_account_bump]]],
     )
-    .error_log("Error: Failed to transfer lamports to config account")?;
-    log!(
-        log_level,
-        2,
-        "Adding {} bytes to config account",
-        incremented_space
-    );
+    .error_log("Error: Failed to transfer lamports to payer account")?;
     uris_account_info
-        .realloc(space, false)
-        .error_log("Error: Failed to realloc config account")?;
+        .realloc(space, true)
+        .error_log("Error: Failed to realloc uris account")?;
     uris_account_data
         .serialize(&mut &mut uris_account_info.data.borrow_mut()[..])
-        .error_log("Error: Failed to serialize config")?;
+        .error_log("Error: Failed to serialize into uris account")?;
     Ok(())
 }

@@ -45,7 +45,7 @@ pub fn nft_withdraw(
 
     log!(log_level, 0, "Done with main account collection");
 
-    let (_expected_vote_data_pubkey, _expected_vote_data_bump) = general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
+    let (_general_account_pubkey, _general_account_bump) = general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
     .error_log("Error: failed to assert pda input for vote_data_account_info")?;
     vote_account_info.assert_key_match(&vote::program::id())
         .error_log("Error: vote_account_info must be owned by the spl_program::id()")?;

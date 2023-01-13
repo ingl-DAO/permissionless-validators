@@ -30,7 +30,6 @@ pub fn init_rebalance(
     log!(log_level, 4, "initializing init_rebalance ...");
     let account_info_iter = &mut accounts.iter();
     let _payer_account_info = next_account_info(account_info_iter)?;
-    let vote_account_info = next_account_info(account_info_iter)?;
     let validator_account_info = next_account_info(account_info_iter)?;
     let t_stake_account_info = next_account_info(account_info_iter)?;
     let pd_pool_account_info = next_account_info(account_info_iter)?;
@@ -49,7 +48,7 @@ pub fn init_rebalance(
     let (expected_t_stake_key, expected_t_stake_bump) = t_stake_account_info
         .assert_seed(program_id, &[T_STAKE_ACCOUNT_KEY.as_ref()])
         .error_log("failed to assert t_stake_account_info")?;
-    let (_expected_vote_data_pubkey, _expected_vote_data_bump) = general_account_info
+    let (_general_account_key, _general_account_bump) = general_account_info
         .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("failed to assert general_account_info")?;
     let (_expected_stake_key, _expected_stake_bump) = stake_account_info
@@ -65,9 +64,6 @@ pub fn init_rebalance(
     general_account_info
         .assert_owner(program_id)
         .error_log("failed to assert general_account_info program ownership")?;
-    vote_account_info
-        .assert_owner(&solana_program::vote::program::id())
-        .error_log("Error: @ asserting vote_account ownership")?;
     t_stake_account_info
         .assert_owner(&solana_program::system_program::id())
         .error_log("Error: @ asserting t_stake_account ownership")?;
@@ -143,7 +139,6 @@ pub fn init_rebalance(
                     &[PD_POOL_ACCOUNT_KEY.as_ref(), &[pd_pool_bump]],
                     &[
                         T_STAKE_ACCOUNT_KEY.as_ref(),
-                        vote_account_info.key.as_ref(),
                         &[expected_t_stake_bump],
                     ],
                 ],
@@ -217,7 +212,6 @@ pub fn init_rebalance(
                 &[t_withdraw_info.clone()],
                 &[&[
                     T_WITHDRAW_KEY.as_ref(),
-                    vote_account_info.key.as_ref(),
                     &[t_withdraw_bump],
                 ]],
             )
@@ -230,7 +224,6 @@ pub fn init_rebalance(
                 &[t_withdraw_info.clone()],
                 &[&[
                     T_WITHDRAW_KEY.as_ref(),
-                    vote_account_info.key.as_ref(),
                     &[t_withdraw_bump],
                 ]],
             )
@@ -297,16 +290,10 @@ pub fn init_rebalance(
                 general_data.dealloced = general_data
                     .dealloced
                     .checked_sub(general_data.pending_delegation_total)
-                    .error_log(
-                        "dealloced is less pending_delegation_total in general_data ",
-                    )?;
-                general_data
-                    .rebalancing_data
-                    .pending_validator_rewards = 0;
+                    .error_log("dealloced is less pending_delegation_total in general_data ")?;
+                general_data.rebalancing_data.pending_validator_rewards = 0;
 
-                general_data
-                    .rebalancing_data
-                    .unclaimed_validator_rewards = val_owners_lamports;
+                general_data.rebalancing_data.unclaimed_validator_rewards = val_owners_lamports;
                 general_data.pending_delegation_total = 0;
             } else {
                 log!(log_level, 3, "Dealloced <= Pending delegation Total");
@@ -315,19 +302,13 @@ pub fn init_rebalance(
                     .checked_sub(general_data.dealloced)
                     .error_log("pending_delegation_total in general_data is less than that in general_data ")?;
                 general_data.dealloced = 0;
-                general_data
-                    .rebalancing_data
-                    .pending_validator_rewards = 0;
-                general_data
-                    .rebalancing_data
-                    .unclaimed_validator_rewards = val_owners_lamports;
+                general_data.rebalancing_data.pending_validator_rewards = 0;
+                general_data.rebalancing_data.unclaimed_validator_rewards = val_owners_lamports;
             }
         }
     }
 
-    general_data
-        .rebalancing_data
-        .is_rebalancing_active = true;
+    general_data.rebalancing_data.is_rebalancing_active = true;
 
     log!(log_level, 0, "begining serialization ...");
     general_data
