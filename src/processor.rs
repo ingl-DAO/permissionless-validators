@@ -70,9 +70,18 @@ pub fn process_instruction(
             create_vote_account(program_id, accounts, log_level, false)?
         }
 
-        InstructionEnum::MintNft { log_level } => {
-            process_mint_nft(program_id, accounts, log_level, false)?
-        }
+        InstructionEnum::MintNft {
+            log_level,
+            switchboard_state_bump,
+            permission_bump,
+        } => process_mint_nft(
+            program_id,
+            accounts,
+            switchboard_state_bump,
+            permission_bump,
+            log_level,
+            false,
+        )?,
 
         InstructionEnum::UploadUris {
             uris,

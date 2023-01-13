@@ -13,6 +13,8 @@ use crate::state::{GovernanceType, VoteAuthorize, VoteInit, VoteState};
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
     MintNft {
+        switchboard_state_bump: u8,
+        permission_bump: u8,
         log_level: u8,
     },
     Init {
