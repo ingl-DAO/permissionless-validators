@@ -60,9 +60,18 @@ pub fn process_instruction(
             create_vote_account(program_id, accounts, log_level, false)?
         }
 
-        InstructionEnum::MintNft { log_level } => {
-            process_mint_nft(program_id, accounts, log_level, false)?
-        }
+        InstructionEnum::MintNft {
+            log_level,
+            switchboard_state_bump,
+            permission_bump,
+        } => process_mint_nft(
+            program_id,
+            accounts,
+            switchboard_state_bump,
+            permission_bump,
+            log_level,
+            false,
+        )?,
 
         InstructionEnum::UploadUris {
             uris,
@@ -89,8 +98,6 @@ pub fn process_instruction(
         } => vote_governance(
             program_id, accounts, numeration, vote, log_level, false, false,
         )?,
-
-        
 
         _ => {
             log!(0, 5, "Instruction not yet Implemented");

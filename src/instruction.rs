@@ -8,11 +8,13 @@ use solana_program::{
     system_instruction, sysvar,
 };
 
-use crate::state::{VoteInit, VoteState, GovernanceType};
+use crate::state::{GovernanceType, VoteInit, VoteState};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
     MintNft {
+        switchboard_state_bump: u8,
+        permission_bump: u8,
         log_level: u8,
     },
     Init {
