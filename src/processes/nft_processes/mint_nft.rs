@@ -1,11 +1,15 @@
 use std::collections::BTreeMap;
 
 use crate::{
+    error::InglError,
     log,
-    state::{constants::*, FundsLocation, GeneralData, NftData, UrisAccount, ValidatorConfig},
+    state::{
+        constants::*, FundsLocation, GeneralData, NftData, UrisAccount, ValidatorConfig,
+        VrfClientState,
+    },
     utils::{get_clock_data, get_rent_data_from_account, AccountInfoHelpers, ResultExt},
 };
-
+use anchor_spl::token::accessor::authority;
 use borsh::BorshSerialize;
 use mpl_token_metadata::{
     self as metaplex,
@@ -22,6 +26,7 @@ use solana_program::{
 };
 
 use spl_associated_token_account::{get_associated_token_address, *};
+use switchboard_v2::SWITCHBOARD_PROGRAM_ID;
 
 pub fn process_mint_nft(
     program_id: &Pubkey,
@@ -48,6 +53,8 @@ pub fn process_mint_nft(
     let ingl_config_account_info = next_account_info(account_info_iter)?;
     let uris_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
+    let nft_vrf_account_info = next_account_info(account_info_iter)?;
+    let nft_vrf_state_account_info = next_account_info(account_info_iter)?;
     let clock = get_clock_data(account_info_iter, clock_is_from_account)?;
     let rent_data = get_rent_data_from_account(sysvar_rent_account_info)?;
 
@@ -439,5 +446,90 @@ pub fn process_mint_nft(
         .error_log("Error @ general_data serialization")?;
     log!(log_level, 4, "nft account created!!!");
 
+    let create_vrf_accounts = &[
+        payer_account_info.clone(),
+        nft_vrf_account_info.clone(),
+        nft_vrf_state_account_info.clone(),
+        sysvar_rent_account_info.clone(),
+    ];
+    create_vrf_account(program_id, create_vrf_accounts, 0, log_level)?;
+
+    Ok(())
+}
+
+fn create_vrf_account(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    max_result: u64,
+    log_level: u8,
+) -> ProgramResult {
+    log!(log_level, 4, "Init VRF account...");
+    let account_info_iter = &mut accounts.iter();
+    let payer_account_info = next_account_info(account_info_iter)?;
+    let nft_vrf_account_info = next_account_info(account_info_iter)?;
+    let nft_vrf_state_account_info = next_account_info(account_info_iter)?;
+    let sysvar_rent_account_info = next_account_info(account_info_iter)?;
+
+    payer_account_info
+        .assert_signer()
+        .error_log("@payer_account_info")?;
+    nft_vrf_account_info
+        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
+        .error_log("@nft_vrf_account_info")?;
+
+    let (nft_vrf_state_key, nft_vrf_state_bump) = nft_vrf_state_account_info
+        .assert_seed(
+            program_id,
+            &[VRF_STATE_KEY, nft_vrf_account_info.key.as_ref()],
+        )
+        .error_log("@nft_vrf_state_account")?;
+
+    if max_result > INGL_VRF_MAX_RESULT {
+        Err(InglError::MaxResultExceedsMaximum.utilize("VRF max result"))?;
+    }
+    let nft_vrf_authority = authority(nft_vrf_account_info)
+        .error_log("failed to deserialize @nft_vrf_account_info data")?;
+    if nft_vrf_state_key != nft_vrf_authority {
+        Err(InglError::InvalidVrfAuthorityError.utilize("@nft_vrf_autority"))?;
+    }
+
+    let space = std::mem::size_of::<VrfClientState>() + 8;
+    let rent_lamports =
+        get_rent_data_from_account(sysvar_rent_account_info)?.minimum_balance(space);
+
+    invoke_signed(
+        &system_instruction::create_account(
+            &payer_account_info.key,
+            &nft_vrf_state_key,
+            rent_lamports,
+            space as u64,
+            program_id,
+        ),
+        &[
+            payer_account_info.clone(),
+            nft_vrf_state_account_info.clone(),
+        ],
+        &[&[
+            VRF_STATE_KEY.as_ref(),
+            nft_vrf_account_info.key.as_ref(),
+            &[nft_vrf_state_bump],
+        ]],
+    )
+    .error_log("Failed to create ingl VRF account @system_program invoke")?;
+
+    let mut ingl_vrf_state = VrfClientState::default();
+    ingl_vrf_state.bump = nft_vrf_state_bump;
+    ingl_vrf_state.vrf = *nft_vrf_account_info.key;
+    if max_result == 0 {
+        ingl_vrf_state.max_result = INGL_VRF_MAX_RESULT
+    } else {
+        ingl_vrf_state.max_result = max_result
+    }
+
+    ingl_vrf_state
+        .serialize(&mut &mut nft_vrf_state_account_info.data.borrow_mut()[..])
+        .error_log("Failed to serialized VRF account data")?;
+
+    log!(log_level, 4, "Init VRF account !!!");
     Ok(())
 }

@@ -24,7 +24,7 @@ use crate::state::LogColors::*;
 pub const LOG_LEVEL: u8 = 5;
 
 pub mod constants {
-
+    pub const INGL_VRF_MAX_RESULT: u64 = u64::MAX;
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
     pub const GENERAL_ACCOUNT_VAL_PHRASE: u32 = 836_438_471;
@@ -44,6 +44,7 @@ pub mod constants {
     pub const NFT_ACCOUNT_CONST: &[u8] = b"nft_account";
     pub const INGL_PROGRAM_AUTHORITY_KEY: &[u8] = b"ingl_program_authority";
     pub const INGL_PROPOSAL_KEY: &[u8] = b"ingl_proposal";
+    pub const VRF_STATE_KEY: &[u8] = b"vrf_state_key";
 
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
@@ -514,4 +515,14 @@ pub enum UpgradeableLoaderState {
         // The raw program data follows this serialized structure in the
         // account's data.
     },
+}
+
+#[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize, Default)]
+pub struct VrfClientState {
+    pub bump: u8,
+    pub max_result: u64,
+    pub result_buffer: [u8; 32],
+    pub result: u128,
+    pub timestamp: i64,
+    pub vrf: Pubkey,
 }

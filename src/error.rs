@@ -55,4 +55,10 @@ pub enum InglError {
 
     #[err("Cannot Verify NFT Ownership")]
     NFTBalanceCheckError, //15
+
+    #[err("Switchboard VRF Account's authority should be set to the client's state pubkey")]
+    InvalidVrfAuthorityError, //16
+
+    #[err("The max result must not exceed u64")]
+    MaxResultExceedsMaximum, //17
 }
