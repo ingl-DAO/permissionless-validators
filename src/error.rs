@@ -61,4 +61,10 @@ pub enum InglError {
 
     #[err("The max result must not exceed u64")]
     MaxResultExceedsMaximum, //17
+
+    #[err("Not Enough Votes to pass the proposal")]
+    NotEnoughVotes, //18
+
+    #[err("Uris Account is too big")]
+    UrisAccountTooBig, //19
 }

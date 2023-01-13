@@ -49,7 +49,7 @@ pub fn process_mint_nft(
     let sysvar_rent_account_info = next_account_info(account_info_iter)?;
     let system_program_account_info = next_account_info(account_info_iter)?;
     let nft_metadata_account_info = next_account_info(account_info_iter)?;
-    let minting_pool_account_info = next_account_info(account_info_iter)?;
+    let pd_pool_account_info = next_account_info(account_info_iter)?;
     let nft_account_info = next_account_info(account_info_iter)?;
     let ingl_edition_account_info = next_account_info(account_info_iter)?;
     let nft_edition_account_info = next_account_info(account_info_iter)?;
@@ -72,7 +72,7 @@ pub fn process_mint_nft(
     let switchboard_program_account_info = next_account_info(account_info_iter)?;
     let recent_blockhashes_account_info = next_account_info(account_info_iter)?;
 
-    let clock = get_clock_data(account_info_iter, clock_is_from_account)?;
+    let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
     let rent_data = get_rent_data_from_account(sysvar_rent_account_info)?;
 
     log!(log_level, 0, "Done with Main account Collection ...");
@@ -110,7 +110,7 @@ pub fn process_mint_nft(
             ],
         )
         .error_log("Error @ nft_account_info pda assertion")?;
-    let (pd_pool_id, _pd_pool_bump) = minting_pool_account_info
+    let (pd_pool_id, _pd_pool_bump) = pd_pool_account_info
         .assert_seed(program_id, &[PD_POOL_ACCOUNT_KEY.as_ref()])
         .error_log("Error @ minting_pool_account_info pda assertion")?;
     let (mint_authority_key, mint_authority_bump) = mint_authority_account_info
@@ -144,6 +144,9 @@ pub fn process_mint_nft(
     let config_data = Box::new(ValidatorConfig::decode(&ingl_config_account_info)?);
     let uris_data = Box::new(UrisAccount::decode(&uris_account_info)?);
     let mut general_data = Box::new(GeneralData::decode(&general_account_info)?);
+
+    let (vote_account_key, _va_bump) =
+        Pubkey::find_program_address(&[VOTE_ACCOUNT_KEY.as_ref()], program_id);
 
     let mpl_token_metadata_id = mpl_token_metadata::id();
     let metadata_seeds = &[
@@ -195,7 +198,7 @@ pub fn process_mint_nft(
     log!(log_level, 0, "Done with main assertions");
 
     // Getting timestamp
-    let current_timestamp = clock.unix_timestamp as u32;
+    let current_timestamp = clock_data.unix_timestamp as u32;
 
     let space = 130;
     let rent_lamports = rent_data.minimum_balance(space);
@@ -220,15 +223,15 @@ pub fn process_mint_nft(
     let space = 82;
     let rent_lamports = rent_data.minimum_balance(space);
 
-    let mint_cost = config_data.unit_backing;
+    let mint_cost = config_data.unit_stake;
 
     general_data.mint_numeration += 1;
     general_data.total_delegated += 1;
 
-    if general_data.dealloced_count >= 1 {
-        general_data.dealloced_count -= 1;
+    if general_data.dealloced >= mint_cost {
+        general_data.dealloced -= mint_cost;
     } else {
-        general_data.pending_delegation_count += 1;
+        general_data.pending_delegation_total += mint_cost;
     }
 
     log!(log_level, 2, "transfer the mint cost to the minting pool");
@@ -237,7 +240,7 @@ pub fn process_mint_nft(
         &system_instruction::transfer(payer_account_info.key, &pd_pool_id, mint_cost),
         &[
             payer_account_info.clone(),
-            minting_pool_account_info.clone(),
+            pd_pool_account_info.clone(),
         ],
     )
     .error_log("Error @ minting_pool_account_info transfer")?;
@@ -310,6 +313,12 @@ pub fn process_mint_nft(
     creators.push(Creator {
         address: mint_authority_key,
         verified: true,
+        share: 0,
+    });
+
+    creators.push(Creator {
+        address: vote_account_key,
+        verified: false,
         share: 100,
     });
 
@@ -459,7 +468,28 @@ pub fn process_mint_nft(
         funds_location: FundsLocation::Delegated,
         all_withdraws: Vec::new(),
         all_votes: BTreeMap::new(),
+        last_withdrawal_epoch: None,
+        last_delegation_epoch: Some(clock_data.epoch),
     };
+    let space = nft_account_data.get_space();
+    let rent_lamports = rent_data.minimum_balance(space);
+
+    invoke_signed(
+        &system_instruction::create_account(
+            payer_account_info.key,
+            &nft_account_pubkey,
+            rent_lamports,
+            space as u64,
+            program_id,
+        ),
+        &[payer_account_info.clone(), nft_account_info.clone()],
+        &[&[
+            NFT_ACCOUNT_CONST.as_ref(),
+            nft_mint_account_info.key.as_ref(),
+            &[nft_account_bump],
+        ]],
+    )
+    .error_log("Error @ nft_account_info creation")?;
     nft_account_data
         .serialize(&mut &mut nft_account_info.data.borrow_mut()[..])
         .error_log("Error @ nft_account_data serialization")?;

@@ -3,10 +3,10 @@ use std::collections::BTreeMap;
 use crate::{
     error::InglError,
     log,
-    state::{constants::*, GeneralData, GovernanceData, GovernanceType, UpgradeableLoaderState},
+    state::{constants::*, GeneralData, GovernanceData, GovernanceType, UpgradeableLoaderState, ValidatorConfig, VoteAccountGovernance},
     utils::{
         get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, PubkeyHelpers,
-        ResultExt,
+        ResultExt, OptionExt,
     },
 };
 
@@ -22,7 +22,7 @@ use solana_program::{
     system_instruction,
 };
 
-pub fn create_governance_proposal(
+pub fn create_governance(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     governance_type: GovernanceType,
@@ -39,6 +39,7 @@ pub fn create_governance_proposal(
     let mint_account_info = next_account_info(account_info_iter)?;
     let associated_token_account_info = next_account_info(account_info_iter)?;
     let nft_account_data_info = next_account_info(account_info_iter)?;
+    let config_account_info = next_account_info(account_info_iter)?;
 
     verify_nft_ownership(
         payer_account_info,
@@ -57,6 +58,14 @@ pub fn create_governance_proposal(
     general_account_info
         .assert_owner(program_id)
         .error_log("failed at general account owner assertion")?;
+    config_account_info
+        .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
+        .error_log("failed at config account seed assertion")?;
+    config_account_info
+        .assert_owner(program_id)
+        .error_log("failed at config account owner assertion")?;
+        
+    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
 
@@ -66,7 +75,7 @@ pub fn create_governance_proposal(
 
     let buffer_address_info;
 
-    match governance_type {
+    match governance_type.clone() {
         GovernanceType::ProgramUpgrade {
             buffer_account,
             code_link: _,
@@ -88,14 +97,25 @@ pub fn create_governance_proposal(
                         program_id,
                     );
                     authority_address
-                        .unwrap()
+                        .error_log("Program must have an authority address")?
                         .assert_match(&expected_authority_address)
                         .error_log("Error @ Authority must the correct program's PDA")?;
                 }
                 _ => return Err(InglError::ExpectedBufferAccount.utilize("")),
             }
         }
-        _ => (),
+
+        GovernanceType::VoteAccountGovernance(x) => {
+            match x{
+                VoteAccountGovernance::ValidatorID(_) => {
+                    if config_data.is_validator_id_switchable == false {
+                        return Err(InglError::InvalidData.utilize("Validator Id for this Validator Instance is not switchable"));
+                    }
+                }
+                _ => (),
+            }
+        }
+                _ => (),
     }
 
     let mut general_account_data = Box::new(GeneralData::decode(general_account_info)?);
@@ -115,6 +135,9 @@ pub fn create_governance_proposal(
         validation_phrase: GOVERNANCE_DATA_VAL_PHRASE,
         expiration_time: clock_data.unix_timestamp as u32 + 60 * 60 * 24 * 30,
         is_still_ongoing: true,
+        date_finalized: None,
+        did_proposal_pass: None,
+        is_proposal_executed: false,
         votes: BTreeMap::new(),
         governance_type: governance_type,
     };

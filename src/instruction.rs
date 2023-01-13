@@ -8,7 +8,7 @@ use solana_program::{
     system_instruction, sysvar,
 };
 
-use crate::state::{GovernanceType, VoteInit, VoteState};
+use crate::state::{GovernanceType, VoteAuthorize, VoteInit, VoteState};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
@@ -34,17 +34,15 @@ pub enum InstructionEnum {
         discord_invite: String,
         validator_name: String,
         collection_uri: String,
+        website: String,
     },
     Redeem {
         log_level: u8,
     },
-    ValidatorWithdraw {
+    NFTWithdraw {
+        cnt: usize,
         log_level: u8,
     },
-    NFTWithdraw {
-        cnt: u32,
-        log_level: u8,
-    }, //To be changed to U8
     ProcessRewards {
         log_level: u8,
     },
@@ -59,10 +57,13 @@ pub enum InstructionEnum {
         rarity: u8,
         log_level: u8,
     },
-    ResetConfig {
+    ResetUris {
         log_level: u8,
     },
     UnDelegateNFT {
+        log_level: u8,
+    },
+    DelegateNFT {
         log_level: u8,
     },
     CreateVoteAccount {
@@ -78,6 +79,11 @@ pub enum InstructionEnum {
         log_level: u8,
     },
     FinalizeGovernance {
+        numeration: u32,
+        log_level: u8,
+    },
+    ExecuteGovernance {
+        numeration: u32,
         log_level: u8,
     },
 }
@@ -104,7 +110,7 @@ pub enum VoteInstruction {
     ///   0. `[WRITE]` Vote account to be updated with the Pubkey for authorization
     ///   1. `[]` Clock sysvar
     ///   2. `[SIGNER]` Vote or withdraw authority
-    Authorize(),
+    Authorize(Pubkey, VoteAuthorize),
 
     /// NOT FOR USAGE:   A Vote instruction with recent votes
     ///
@@ -130,6 +136,22 @@ pub enum VoteInstruction {
     ///   1. `[SIGNER]` New validator identity (node_pubkey)
     ///   2. `[SIGNER]` Withdraw authority
     UpdateValidatorIdentity,
+
+    /// Update the commission for the vote account
+    ///
+    /// # Account references
+    ///   0. `[WRITE]` Vote account to be updated
+    ///   1. `[SIGNER]` Withdraw authority
+    UpdateCommission(u8),
+
+    /// A Vote instruction with recent votes
+    ///
+    /// # Account references
+    ///   0. `[WRITE]` Vote account to vote with
+    ///   1. `[]` Slot hashes sysvar
+    ///   2. `[]` Clock sysvar
+    ///   3. `[SIGNER]` Vote authority
+    VoteSwitch(), // Two Interior fields of (Vote, Hash)
 }
 
 pub fn vote_initialize_account(vote_pubkey: &Pubkey, vote_init: &VoteInit) -> Instruction {
@@ -192,6 +214,42 @@ pub fn vote_withdraw(
     Instruction::new_with_bincode(
         solana_program::vote::program::id(),
         &VoteInstruction::Withdraw(lamports),
+        account_metas,
+    )
+}
+
+pub fn vote_update_commission(
+    vote_pubkey: &Pubkey,
+    authorized_withdrawer_pubkey: &Pubkey,
+    commission: u8,
+) -> Instruction {
+    let account_metas = vec![
+        AccountMeta::new(*vote_pubkey, false),
+        AccountMeta::new_readonly(*authorized_withdrawer_pubkey, true),
+    ];
+
+    Instruction::new_with_bincode(
+        solana_program::vote::program::id(),
+        &VoteInstruction::UpdateCommission(commission),
+        account_metas,
+    )
+}
+
+pub fn vote_authorize(
+    vote_pubkey: &Pubkey,
+    authorized_pubkey: &Pubkey, // currently authorized
+    new_authorized_pubkey: &Pubkey,
+    vote_authorize: VoteAuthorize,
+) -> Instruction {
+    let account_metas = vec![
+        AccountMeta::new(*vote_pubkey, false),
+        AccountMeta::new_readonly(sysvar::clock::id(), false),
+        AccountMeta::new_readonly(*authorized_pubkey, true),
+    ];
+
+    Instruction::new_with_bincode(
+        solana_program::vote::program::id(),
+        &VoteInstruction::Authorize(*new_authorized_pubkey, vote_authorize),
         account_metas,
     )
 }
