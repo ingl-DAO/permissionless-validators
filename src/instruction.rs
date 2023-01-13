@@ -55,10 +55,13 @@ pub enum InstructionEnum {
         rarity: u8,
         log_level: u8,
     },
-    ResetConfig {
+    ResetUris {
         log_level: u8,
     },
     UnDelegateNFT {
+        log_level: u8,
+    },
+    DelegateNFT {
         log_level: u8,
     },
     CreateVoteAccount {

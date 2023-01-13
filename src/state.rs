@@ -88,6 +88,15 @@ pub struct ValidatorConfig {
 }
 
 impl ValidatorConfig {
+    pub fn get_space(&self) -> usize {
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4  = 79
+        79 + self.validator_name.len()
+            + self.twitter_handle.len()
+            + self.discord_invite.len()
+            + self.website.len()
+    }
+
     pub fn validate_data(&self) -> ProgramResult {
         if !self.is_validator_id_switchable && self.initial_redemption_fee != 0 {
             Err(InglError::InvalidConfigData
@@ -144,8 +153,7 @@ impl ValidatorConfig {
                 .utilize("Discord invite must be less than 32 characters"))?
         }
         if self.website.len() > 64 {
-            Err(InglError::InvalidConfigData
-                .utilize("Website must be less than 32 characters"))?
+            Err(InglError::InvalidConfigData.utilize("Website must be less than 32 characters"))?
         }
         Ok(())
     }
@@ -191,7 +199,7 @@ impl ValidatorConfig {
 
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
 #[validation_phrase(crate::state::constants::URIS_ACCOUNT_VAL_PHRASE)]
-///Creation Size: 12
+///Creation Size: 16
 pub struct UrisAccount {
     pub validation_phrase: u32,
     ///This vector is used to define rarity of NFTs.
@@ -273,6 +281,14 @@ impl UrisAccount {
             ind as u8,
         )
     }
+    pub fn default() -> Self {
+        Self {
+            validation_phrase: constants::URIS_ACCOUNT_VAL_PHRASE,
+            rarities: Vec::new(),
+            rarity_names: Vec::new(),
+            uris: Vec::new(),
+        }
+    }
 }
 
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]
@@ -289,6 +305,12 @@ pub struct VoteReward {
     pub nft_holders_reward: u64,
 }
 
+impl VoteReward {
+    pub fn get_space() -> usize {
+        28
+    }
+}
+
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]
 /// Creation Size: 17 bytes.
 pub struct RebalancingData {
@@ -298,6 +320,11 @@ pub struct RebalancingData {
     pub unclaimed_validator_rewards: u64,
     /// This tells us whether the rebalancing process is active or not.
     pub is_rebalancing_active: bool,
+}
+impl RebalancingData {
+    pub fn get_space() -> usize {
+        17
+    }
 }
 
 impl Default for RebalancingData {
@@ -327,6 +354,13 @@ pub struct GeneralData {
     pub last_validated_validator_id_proposal: u32,
     pub rebalancing_data: RebalancingData,
     pub vote_rewards: Vec<VoteReward>,
+}
+impl GeneralData {
+    pub fn get_space(&self) -> usize {
+        // 4 + 4 + 8 + 8 + 4 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len() + 4)
+        // 4 + 4 + 8 + 8 + 4 + 8 + 8 + 1 + 4 + 4 + 4 + 4 = 60
+        61 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len())
+    }
 }
 
 impl Default for GeneralData {
@@ -368,6 +402,13 @@ pub struct NftData {
     pub last_delegation_epoch: Option<u64>,
     pub all_withdraws: Vec<u64>,
     pub all_votes: BTreeMap<u32, bool>,
+}
+impl NftData {
+    pub fn get_space(&self) -> usize {
+        // 4 + 1 + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
+        // 4 + 1 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
+        40 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
+    }
 }
 
 pub enum LogColors {
