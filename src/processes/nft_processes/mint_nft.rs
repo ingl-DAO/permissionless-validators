@@ -9,7 +9,7 @@ use crate::{
     },
     utils::{get_clock_data, get_rent_data_from_account, AccountInfoHelpers, ResultExt},
 };
-use anchor_lang::accounts::account::Account as AnchorAccount;
+use anchor_lang::{accounts::account::Account as AnchorAccount, prelude::ProgramError};
 use anchor_spl::token::accessor::authority;
 use borsh::BorshSerialize;
 use mpl_token_metadata::{
@@ -21,12 +21,14 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     program::{invoke, invoke_signed},
+    program_pack::Pack,
     pubkey::Pubkey,
     system_instruction, system_program,
     sysvar::{self, recent_blockhashes},
 };
 
 use spl_associated_token_account::{get_associated_token_address, *};
+use spl_token::{self, error::TokenError, state::Account};
 use switchboard_v2::{VrfRequestRandomness, SWITCHBOARD_PROGRAM_ID};
 
 pub fn process_mint_nft(
@@ -40,7 +42,7 @@ pub fn process_mint_nft(
     log!(log_level, 4, "Initiated nft Minting ...");
     let account_info_iter = &mut accounts.iter();
     let payer_account_info = next_account_info(account_info_iter)?;
-    let mint_account_info = next_account_info(account_info_iter)?;
+    let nft_mint_account_info = next_account_info(account_info_iter)?;
     let mint_authority_account_info = next_account_info(account_info_iter)?;
     let associated_token_account_info = next_account_info(account_info_iter)?;
     let spl_token_program_account_info = next_account_info(account_info_iter)?;
@@ -102,7 +104,10 @@ pub fn process_mint_nft(
     let (nft_account_pubkey, nft_account_bump) = nft_account_info
         .assert_seed(
             program_id,
-            &[NFT_ACCOUNT_CONST.as_ref(), mint_account_info.key.as_ref()],
+            &[
+                NFT_ACCOUNT_CONST.as_ref(),
+                nft_mint_account_info.key.as_ref(),
+            ],
         )
         .error_log("Error @ nft_account_info pda assertion")?;
     let (pd_pool_id, _pd_pool_bump) = minting_pool_account_info
@@ -144,7 +149,7 @@ pub fn process_mint_nft(
     let metadata_seeds = &[
         PREFIX.as_bytes(),
         mpl_token_metadata_id.as_ref(),
-        mint_account_info.key.as_ref(),
+        nft_mint_account_info.key.as_ref(),
     ];
     let (nft_metadata_key, _nft_metadata_bump) = nft_metadata_account_info
         .assert_seed(&mpl_token_metadata_id, metadata_seeds)
@@ -153,7 +158,7 @@ pub fn process_mint_nft(
     associated_token_account_info
         .assert_key_match(&get_associated_token_address(
             payer_account_info.key,
-            mint_account_info.key,
+            nft_mint_account_info.key,
         ))
         .error_log("Error: @associated_token_account_info")?;
 
@@ -171,7 +176,7 @@ pub fn process_mint_nft(
         &[
             b"metadata",
             mpl_token_metadata_id.as_ref(),
-            mint_account_info.key.as_ref(),
+            nft_mint_account_info.key.as_ref(),
             b"edition",
         ],
     )?;
@@ -206,7 +211,7 @@ pub fn process_mint_nft(
         &[payer_account_info.clone(), nft_account_info.clone()],
         &[&[
             NFT_ACCOUNT_CONST.as_ref(),
-            mint_account_info.key.as_ref(),
+            nft_mint_account_info.key.as_ref(),
             &[nft_account_bump],
         ]],
     )
@@ -241,24 +246,27 @@ pub fn process_mint_nft(
     invoke(
         &system_instruction::create_account(
             payer_account_info.key,
-            mint_account_info.key,
+            nft_mint_account_info.key,
             rent_lamports,
             space as u64,
             spl_token_program_account_info.key,
         ),
-        &[payer_account_info.clone(), mint_account_info.clone()],
+        &[payer_account_info.clone(), nft_mint_account_info.clone()],
     )
     .error_log("Error @ mint_account_info creation")?;
     log!(log_level, 2, "initialize the mint account");
     invoke(
         &spl_token::instruction::initialize_mint(
             &spl_token::id(),
-            &mint_account_info.key,
+            &nft_mint_account_info.key,
             &mint_authority_key,
             Some(&mint_authority_key),
             0,
         )?,
-        &[mint_account_info.clone(), sysvar_rent_account_info.clone()],
+        &[
+            nft_mint_account_info.clone(),
+            sysvar_rent_account_info.clone(),
+        ],
     )
     .error_log("Error @ mint_account_info initialization")?;
     log!(log_level, 2, "create mint associated token account");
@@ -266,13 +274,13 @@ pub fn process_mint_nft(
         &spl_associated_token_account::instruction::create_associated_token_account(
             payer_account_info.key,
             payer_account_info.key,
-            mint_account_info.key,
+            nft_mint_account_info.key,
         ),
         &[
             payer_account_info.clone(),
             associated_token_account_info.clone(),
             payer_account_info.clone(),
-            mint_account_info.clone(),
+            nft_mint_account_info.clone(),
             system_program_account_info.clone(),
             spl_token_program_account_info.clone(),
         ],
@@ -283,14 +291,14 @@ pub fn process_mint_nft(
     invoke_signed(
         &spl_token::instruction::mint_to(
             spl_token_program_account_info.key,
-            mint_account_info.key,
+            nft_mint_account_info.key,
             associated_token_account_info.key,
             &mint_authority_key,
             &[],
             1,
         )?,
         &[
-            mint_account_info.clone(),
+            nft_mint_account_info.clone(),
             associated_token_account_info.clone(),
             mint_authority_account_info.clone(),
         ],
@@ -318,7 +326,7 @@ pub fn process_mint_nft(
         &mpl_token_metadata::instruction::create_metadata_accounts_v3(
             mpl_token_metadata_id,
             nft_metadata_key,
-            *mint_account_info.key,
+            *nft_mint_account_info.key,
             *mint_authority_account_info.key,
             *payer_account_info.key,
             *mint_authority_account_info.key,
@@ -344,7 +352,7 @@ pub fn process_mint_nft(
         ),
         &[
             nft_metadata_account_info.clone(),
-            mint_account_info.clone(),
+            nft_mint_account_info.clone(),
             mint_authority_account_info.clone(),
             payer_account_info.clone(),
             mint_authority_account_info.clone(),
@@ -384,7 +392,7 @@ pub fn process_mint_nft(
         &mpl_token_metadata::instruction::create_master_edition_v3(
             mpl_token_metadata_id,
             nft_edition_key,
-            *mint_account_info.key,
+            *nft_mint_account_info.key,
             mint_authority_key,
             mint_authority_key,
             nft_metadata_key,
@@ -393,7 +401,7 @@ pub fn process_mint_nft(
         ),
         &[
             nft_edition_account_info.clone(),
-            mint_account_info.clone(),
+            nft_mint_account_info.clone(),
             mint_authority_account_info.clone(),
             mint_authority_account_info.clone(),
             payer_account_info.clone(),
@@ -459,7 +467,6 @@ pub fn process_mint_nft(
     general_data
         .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
         .error_log("Error @ general_data serialization")?;
-    log!(log_level, 4, "nft account created!!!");
 
     let create_vrf_accounts = &[
         payer_account_info.clone(),
@@ -468,6 +475,7 @@ pub fn process_mint_nft(
         sysvar_rent_account_info.clone(),
     ];
     create_vrf_account(program_id, create_vrf_accounts, 0, log_level)?;
+
     let request_randomness_accounts = &[
         payer_account_info.clone(),
         payer_wallet_account_info.clone(),
@@ -490,6 +498,17 @@ pub fn process_mint_nft(
         permission_bump,
         log_level,
     )?;
+
+    let freeze_nft_accounts = &[
+        payer_account_info.clone(),
+        nft_mint_account_info.clone(),
+        associated_token_account_info.clone(),
+        mint_authority_account_info.clone(),
+        nft_edition_account_info.clone(),
+    ];
+    freeze_nft_account(program_id, freeze_nft_accounts, log_level)?;
+
+    log!(log_level, 4, "nft account created!!!");
     Ok(())
 }
 
@@ -579,7 +598,7 @@ fn request_randomness(
 ) -> ProgramResult {
     log!(log_level, 4, "requesting randomness....");
     let account_info_iter = &mut accounts.iter();
-    let payer_authority_account_info = next_account_info(account_info_iter)?;
+    let payer_account_info = next_account_info(account_info_iter)?;
     let payer_wallet_account_info = next_account_info(account_info_iter)?;
     let nft_vrf_account_info = next_account_info(account_info_iter)?;
     let oracle_queue_account_info = next_account_info(account_info_iter)?;
@@ -597,11 +616,11 @@ fn request_randomness(
         Err(InglError::InvalidData.utilize("@switchboard_program_account_info must be executable"))?
     }
 
-    payer_authority_account_info
+    payer_account_info
         .assert_signer()
         .error_log("@payer_authority_account_info")?;
     payer_wallet_account_info
-        .assert_owner(payer_authority_account_info.key)
+        .assert_owner(payer_account_info.key)
         .error_log("@payer_wallet_account_info")?;
 
     nft_vrf_account_info
@@ -654,7 +673,7 @@ fn request_randomness(
 
     let escrow_token_account = AnchorAccount::try_from(&escrow_account_info)
         .error_log("Failed to get Account<TokenAccount> @escrow_account_info")?;
-    let payer_wallet_token_account = AnchorAccount::try_from(&payer_authority_account_info)
+    let payer_wallet_token_account = AnchorAccount::try_from(&payer_account_info)
         .error_log("Failed to get Account<TokenAccount> @payer_authority_account_info")?;
 
     let vrf_request_randomness = VrfRequestRandomness {
@@ -666,7 +685,7 @@ fn request_randomness(
         permission: permission_account_info.clone(),
         escrow: escrow_token_account,
         payer_wallet: payer_wallet_token_account,
-        payer_authority: payer_authority_account_info.clone(),
+        payer_authority: payer_account_info.clone(),
         recent_blockhashes: recent_blockhashes_account_info.clone(),
         program_state: program_state_account_info.clone(),
         token_program: token_program_account_info.clone(),
@@ -685,5 +704,93 @@ fn request_randomness(
     )?;
 
     log!(log_level, 4, "requesting randomness !!!");
+    Ok(())
+}
+
+fn freeze_nft_account(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    log_level: u8,
+) -> ProgramResult {
+    log!(log_level, 4, "Freeze nft account...");
+    let account_info_iter = &mut accounts.iter();
+    let payer_account_info = next_account_info(account_info_iter)?;
+    let nft_mint_account_info = next_account_info(account_info_iter)?;
+    let associated_token_account_info = next_account_info(account_info_iter)?;
+    let freeze_authority_account_info = next_account_info(account_info_iter)?;
+    let nft_edition_account_info = next_account_info(account_info_iter)?;
+
+    log!(log_level, 0, "Done with account collection ...");
+
+    payer_account_info
+        .assert_signer()
+        .error_log("@payer_authority_account_info")?;
+    nft_mint_account_info
+        .assert_owner(&spl_token::id())
+        .error_log("Error: @mint_account_info ownership assertion")?;
+    associated_token_account_info
+        .assert_owner(&spl_token::id())
+        .error_log("Error: @associated_token_account_info ownership assertion")?;
+    nft_edition_account_info
+        .assert_owner(&mpl_token_metadata::id())
+        .error_log("Error: @nft_edition_account_info ownership assertion")?;
+
+    let (mint_authority_key, mint_authority_bump) = freeze_authority_account_info
+        .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])
+        .error_log("Error: @freeze_authority_account_info pda assertion")?;
+
+    associated_token_account_info
+        .assert_key_match(&get_associated_token_address(
+            payer_account_info.key,
+            nft_mint_account_info.key,
+        ))
+        .error_log("Error: @associated_token_account_info assertion")?;
+
+    let associated_token_account_data =
+        Account::unpack(&associated_token_account_info.data.borrow())
+            .error_log("Error: @associated_token_account_info data unpacking")?;
+    if associated_token_account_data.amount != 1 {
+        Err(ProgramError::InsufficientFunds)?
+    }
+    if associated_token_account_data.is_frozen() {
+        Err(TokenError::AccountFrozen)?
+    }
+
+    log!(log_level, 0, "Done with account assertions ...");
+
+    let mpl_token_metadata_program_id = mpl_token_metadata::id();
+    let (nft_edition_key, _nft_edition_bump) = nft_edition_account_info
+        .assert_seed(
+            &mpl_token_metadata::id(),
+            &[
+                b"metadata",
+                mpl_token_metadata_program_id.as_ref(),
+                nft_mint_account_info.key.as_ref(),
+                b"edition",
+            ],
+        )
+        .error_log("Error: @edition_account_info")?;
+
+    log!(log_level, 2, "Freezing the associated token account ...");
+    invoke_signed(
+        &mpl_token_metadata::instruction::freeze_delegated_account(
+            mpl_token_metadata_program_id,
+            mint_authority_key,
+            *associated_token_account_info.key,
+            nft_edition_key,
+            *nft_mint_account_info.key,
+        ),
+        &[
+            freeze_authority_account_info.clone(),
+            associated_token_account_info.clone(),
+            nft_edition_account_info.clone(),
+            nft_mint_account_info.clone(),
+        ],
+        &[&[INGL_MINT_AUTHORITY_KEY.as_ref(), &[mint_authority_bump]]],
+    )
+    .error_log("Error while freezing associated_token_account")?;
+    log!(log_level, 2, "Associated token account frozen!!!");
+
+    log!(log_level, 4, "Freeze nft account !!!");
     Ok(())
 }

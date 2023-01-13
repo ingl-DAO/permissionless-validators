@@ -44,7 +44,8 @@ pub mod constants {
     pub const NFT_ACCOUNT_CONST: &[u8] = b"nft_account";
     pub const INGL_PROGRAM_AUTHORITY_KEY: &[u8] = b"ingl_program_authority";
     pub const INGL_PROPOSAL_KEY: &[u8] = b"ingl_proposal";
-    pub const VRF_STATE_KEY: &[u8] = b"vrf_state_key";
+    pub const VRF_STATE_KEY: &[u8] = b"ingl_vrf_state_key";
+    pub const GEM_ACCOUNT_CONST: &[u8] = b"ingl_gem_account_const";
 
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
