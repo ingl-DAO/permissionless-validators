@@ -464,7 +464,7 @@ pub fn process_mint_nft(
         validation_phrase: NFT_DATA_VAL_PHRASE,
         date_created: current_timestamp,
         numeration: general_data.mint_numeration,
-        rarity: rarity,
+        rarity: Some(rarity),
         funds_location: FundsLocation::Delegated,
         all_withdraws: Vec::new(),
         all_votes: BTreeMap::new(),
@@ -602,16 +602,16 @@ fn create_vrf_account(
     )
     .error_log("Failed to create ingl VRF account @system_program invoke")?;
 
-    let mut ingl_vrf_state = VrfClientState::default();
-    ingl_vrf_state.bump = nft_vrf_state_bump;
-    ingl_vrf_state.vrf = *nft_vrf_account_info.key;
+    let mut nft_vrf_state = VrfClientState::default();
+    nft_vrf_state.bump = nft_vrf_state_bump;
+    nft_vrf_state.vrf = *nft_vrf_account_info.key;
     if max_result == 0 {
-        ingl_vrf_state.max_result = INGL_VRF_MAX_RESULT
+        nft_vrf_state.max_result = INGL_VRF_MAX_RESULT
     } else {
-        ingl_vrf_state.max_result = max_result
+        nft_vrf_state.max_result = max_result
     }
 
-    ingl_vrf_state
+    nft_vrf_state
         .serialize(&mut &mut nft_vrf_state_account_info.data.borrow_mut()[..])
         .error_log("Failed to serialized VRF account data")?;
 

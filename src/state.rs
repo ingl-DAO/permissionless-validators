@@ -24,7 +24,7 @@ use crate::state::LogColors::*;
 pub const LOG_LEVEL: u8 = 5;
 
 pub mod constants {
-    pub const INGL_VRF_MAX_RESULT: u64 = u64::MAX;
+    pub const INGL_VRF_MAX_RESULT: u64 = 10000;
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
     pub const GENERAL_ACCOUNT_VAL_PHRASE: u32 = 836_438_471;
@@ -63,6 +63,7 @@ pub mod constants {
         solana_program::declare_id!("Team111111111111111111111111111111111111111");
     }
 }
+use constants::*;
 
 pub fn get_min_stake_account_lamports() -> u64 {
     LAMPORTS_PER_SOL + Rent::default().minimum_balance(std::mem::size_of::<StakeState>() as usize)
@@ -276,11 +277,11 @@ impl UrisAccount {
         Ok(space)
     }
 
-    pub fn get_uri(&self, seed: u16) -> (String, u8) {
+    pub fn get_uri(&self, seed: u16) -> (String, Rarity) {
         let ind = self.rarities.iter().position(|x| *x > seed).unwrap();
         (
             self.uris[ind][seed as usize % self.uris[ind].len()].clone(),
-            ind as u8,
+            Rarity::from_u8(ind as u8),
         )
     }
     pub fn default() -> Self {
@@ -396,7 +397,7 @@ pub enum FundsLocation {
 //Creation Size:
 pub struct NftData {
     pub validation_phrase: u32,
-    pub rarity: u8,
+    pub rarity: Option<Rarity>,
     pub funds_location: FundsLocation,
     pub numeration: u32,
     pub date_created: u32,
@@ -410,6 +411,44 @@ impl NftData {
         // 4 + 1 + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
         // 4 + 1 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
         40 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
+    }
+
+    pub fn get_rarity(&self, random_value: u64) -> Option<Rarity> {
+        if random_value > INGL_VRF_MAX_RESULT {
+            panic!(
+                "Random value can't be greater than {:?}",
+                INGL_VRF_MAX_RESULT
+            );
+        }
+        Some(match random_value {
+            5000..=u64::MAX => Rarity::Common, //50% chance
+            1070..=4999 => Rarity::Uncommon,   //39.3% chance
+            270..=1069 => Rarity::Rare,        //8% chance
+            70..=269 => Rarity::Exalted,       //2% chance
+            0..=69 => Rarity::Mythic,          //0.7% chance
+        })
+    }
+}
+
+#[derive(BorshDeserialize, Debug, Eq, PartialEq, Hash, BorshSerialize, Clone)]
+pub enum Rarity {
+    Common,
+    Uncommon,
+    Rare,
+    Exalted,
+    Mythic,
+}
+
+impl Rarity {
+    pub fn from_u8(rarity: u8) -> Self {
+        match rarity {
+            0 => Self::Common,
+            1 => Self::Uncommon,
+            2 => Self::Rare,
+            3 => Self::Exalted,
+            4 => Self::Mythic,
+            _ => panic!("Invalid Rarity"),
+        }
     }
 }
 

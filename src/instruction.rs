@@ -17,6 +17,9 @@ pub enum InstructionEnum {
         permission_bump: u8,
         log_level: u8,
     },
+    ImprintRarity {
+        log_level: u8,
+    },
     Init {
         log_level: u8,
         init_commission: u8,

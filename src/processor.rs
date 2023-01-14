@@ -12,7 +12,7 @@ use crate::{
             init_governance::create_governance, vote_governance::vote_governance,
         },
         init_processes::{init::process_init, upload_uris::upload_uris},
-        nft_processes::mint_nft::process_mint_nft,
+        nft_processes::{imprint_rarity::process_imprint_rarity, mint_nft::process_mint_nft},
         rewards_processes::{
             finalize_rebalance::finalize_rebalance, init_rebalance::init_rebalance,
             nft_withdraw::nft_withdraw, process_rewards::process_rewards,
@@ -82,6 +82,9 @@ pub fn process_instruction(
             log_level,
             false,
         )?,
+        InstructionEnum::ImprintRarity { log_level } => {
+            process_imprint_rarity(program_id, accounts, log_level, false)?
+        }
 
         InstructionEnum::UploadUris {
             uris,
