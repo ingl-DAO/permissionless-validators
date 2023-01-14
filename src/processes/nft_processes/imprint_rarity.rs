@@ -1,7 +1,9 @@
 use crate::{
     log,
     state::{
-        constants::{GEM_ACCOUNT_CONST, INGL_MINT_AUTHORITY_KEY, INGL_VRF_MAX_RESULT},
+        constants::{
+            CUMMULATED_RARITY, GEM_ACCOUNT_CONST, INGL_MINT_AUTHORITY_KEY, INGL_VRF_MAX_RESULT,
+        },
         NftData, UrisAccount, VrfClientState,
     },
     utils::{get_clock_data, AccountInfoHelpers, ResultExt},
@@ -172,16 +174,15 @@ pub fn process_imprint_rarity(
         Err(ProgramError::InvalidAccountData).error_log("Unchanged VRF result buffer")?
     }
 
-    let random_value = get_vrf_value(result_buffer, vrf_state_account_data.max_result, log_level);
-    let rarity = nft_data.get_rarity(random_value as u64);
-
     let uris_data = Box::new(UrisAccount::decode(&uris_account_info)?);
+    let random_value = get_vrf_value(result_buffer, vrf_state_account_data.max_result, log_level);
     let seed = if clock_is_from_account {
         1
     } else {
-        panic!("Haven't yet written the seed source")
+        (random_value % CUMMULATED_RARITY as u128) as u16
     };
-    let (uri, _rarity) = uris_data.get_uri(seed);
+    let (uri, rarity) = uris_data.get_uri(seed);
+
     log!(log_level, 2, "Updating metadata account ...");
     invoke_signed(
         &mpl_token_metadata::instruction::update_metadata_accounts_v2(
@@ -210,7 +211,7 @@ pub fn process_imprint_rarity(
     .error_log("Error: @ updating metadata account")?;
     log!(log_level, 2, "Metadata account updated!!!");
 
-    nft_data.rarity = rarity;
+    nft_data.rarity = Some(rarity);
     nft_data
         .serialize(&mut &mut nft_account_info.data.borrow_mut()[..])
         .error_log("Failed to serialize @nft_account_info data")?;

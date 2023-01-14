@@ -21,9 +21,12 @@ use solana_program::{
 };
 
 use crate::state::LogColors::*;
+
+use self::constants::CUMMULATED_RARITY;
 pub const LOG_LEVEL: u8 = 5;
 
 pub mod constants {
+    pub const CUMMULATED_RARITY: u16 = 10000;
     pub const INGL_VRF_MAX_RESULT: u64 = 10000;
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
@@ -63,7 +66,6 @@ pub mod constants {
         solana_program::declare_id!("Team111111111111111111111111111111111111111");
     }
 }
-use constants::*;
 
 pub fn get_min_stake_account_lamports() -> u64 {
     LAMPORTS_PER_SOL + Rent::default().minimum_balance(std::mem::size_of::<StakeState>() as usize)
@@ -214,7 +216,7 @@ pub struct UrisAccount {
 }
 impl UrisAccount {
     pub fn new(rarities: Vec<u16>, names: Vec<String>) -> Result<Self, ProgramError> {
-        if rarities.iter().sum::<u16>() != 10000 {
+        if rarities.iter().sum::<u16>() != CUMMULATED_RARITY {
             Err(InglError::InvalidUrisAccountData.utilize("Rarities must sum to 10000"))?
         }
         let mut new_rarities = Vec::new();
@@ -229,15 +231,16 @@ impl UrisAccount {
             }
         }
 
-        let i = Self {
+        let uri_account = Self {
             validation_phrase: constants::URIS_ACCOUNT_VAL_PHRASE,
             rarity_names: names,
             rarities: new_rarities,
             uris: Vec::new(),
         };
-        i.validate_data()
+        uri_account
+            .validate_data()
             .error_log("Error @ Uris Account Data Validation")?;
-        Ok(i)
+        Ok(uri_account)
     }
 
     pub fn validate_data(&self) -> ProgramResult {
@@ -277,11 +280,11 @@ impl UrisAccount {
         Ok(space)
     }
 
-    pub fn get_uri(&self, seed: u16) -> (String, Rarity) {
+    pub fn get_uri(&self, seed: u16) -> (String, u8) {
         let ind = self.rarities.iter().position(|x| *x > seed).unwrap();
         (
             self.uris[ind][seed as usize % self.uris[ind].len()].clone(),
-            Rarity::from_u8(ind as u8),
+            ind as u8,
         )
     }
     pub fn default() -> Self {
@@ -397,7 +400,7 @@ pub enum FundsLocation {
 //Creation Size:
 pub struct NftData {
     pub validation_phrase: u32,
-    pub rarity: Option<Rarity>,
+    pub rarity: Option<u8>,
     pub funds_location: FundsLocation,
     pub numeration: u32,
     pub date_created: u32,
@@ -411,22 +414,6 @@ impl NftData {
         // 4 + 1 + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
         // 4 + 1 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
         40 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
-    }
-
-    pub fn get_rarity(&self, random_value: u64) -> Option<Rarity> {
-        if random_value > INGL_VRF_MAX_RESULT {
-            panic!(
-                "Random value can't be greater than {:?}",
-                INGL_VRF_MAX_RESULT
-            );
-        }
-        Some(match random_value {
-            5000..=u64::MAX => Rarity::Common, //50% chance
-            1070..=4999 => Rarity::Uncommon,   //39.3% chance
-            270..=1069 => Rarity::Rare,        //8% chance
-            70..=269 => Rarity::Exalted,       //2% chance
-            0..=69 => Rarity::Mythic,          //0.7% chance
-        })
     }
 }
 
