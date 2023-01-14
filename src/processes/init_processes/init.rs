@@ -100,7 +100,7 @@ pub fn process_init(
         rarity_name_space += i.len() + 4;
     }
 
-    let uris_account_creation_size = 8 + rarities.len() * 2 + rarity_name_space;
+    let uris_account_creation_size = 16 + rarities.len() * 2 + rarity_name_space;
     let uris_account_creation_lamports = rent_data.minimum_balance(uris_account_creation_size);
     log!(log_level, 2, "Creating Uris Account ... ");
     invoke_signed(
