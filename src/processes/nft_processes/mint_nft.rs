@@ -278,6 +278,7 @@ pub fn process_mint_nft(
             payer_account_info.key,
             payer_account_info.key,
             nft_mint_account_info.key,
+            &spl_token_program_account_info.key
         ),
         &[
             payer_account_info.clone(),

@@ -271,7 +271,7 @@ impl UrisAccount {
         for i in uris.iter() {
             space += i.len() + 4;
         }
-        if self.uris.len() == rarity.into() {
+        if self.uris.len() == rarity as usize {
             self.uris.push(uris);
             space += 4;
         } else {
