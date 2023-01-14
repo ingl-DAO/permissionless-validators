@@ -306,6 +306,7 @@ fn mint_collection(
             payer_account_info.key,
             collection_holder_account_info.key,
             mint_account_info.key,
+            &spl_token::id()
         ),
         &[
             payer_account_info.clone(),
