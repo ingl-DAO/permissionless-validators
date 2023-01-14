@@ -41,8 +41,8 @@ pub fn reset_uris(program_id: &Pubkey, accounts: &[AccountInfo], log_level: u8) 
     payer_account_info
         .assert_key_match(&config.validator_id)
         .error_log("Error: Payer account is not the validator_id")?;
-
-    let uris_account_data = UrisAccount::default();
+    let mut uris_account_data = Box::new(UrisAccount::decode(uris_account_info)?);
+    uris_account_data.uris = Vec::new();
     let space = 16;
     let lamports = Rent::get()?.minimum_balance(uris_account_info.data_len())
         - Rent::get()?.minimum_balance(space);

@@ -36,7 +36,7 @@ pub fn process_instruction(
             is_validator_id_switchable,
             unit_backing,
             redemption_fee_duration,
-            program_upgrade_threshold,
+            proposal_quorum: program_upgrade_threshold,
             creator_royalties,
             rarities,
             rarity_names,
@@ -108,8 +108,9 @@ pub fn process_instruction(
             log_level,
             numeration,
             vote,
+            cnt,
         } => vote_governance(
-            program_id, accounts, numeration, vote, log_level, false, false,
+            program_id, accounts, numeration, vote,  cnt, log_level, false, false,
         )?,
 
         InstructionEnum::FinalizeGovernance {

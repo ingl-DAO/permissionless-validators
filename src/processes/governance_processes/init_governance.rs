@@ -3,10 +3,13 @@ use std::collections::BTreeMap;
 use crate::{
     error::InglError,
     log,
-    state::{constants::*, GeneralData, GovernanceData, GovernanceType, UpgradeableLoaderState, ValidatorConfig, VoteAccountGovernance},
+    state::{
+        constants::*, GeneralData, GovernanceData, GovernanceType, UpgradeableLoaderState,
+        ValidatorConfig, VoteAccountGovernance,
+    },
     utils::{
-        get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, PubkeyHelpers,
-        ResultExt, OptionExt,
+        get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, OptionExt,
+        PubkeyHelpers, ResultExt,
     },
 };
 
@@ -64,7 +67,7 @@ pub fn create_governance(
     config_account_info
         .assert_owner(program_id)
         .error_log("failed at config account owner assertion")?;
-        
+
     let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
@@ -105,17 +108,16 @@ pub fn create_governance(
             }
         }
 
-        GovernanceType::VoteAccountGovernance(x) => {
-            match x{
-                VoteAccountGovernance::ValidatorID(_) => {
-                    if config_data.is_validator_id_switchable == false {
-                        return Err(InglError::InvalidData.utilize("Validator Id for this Validator Instance is not switchable"));
-                    }
+        GovernanceType::VoteAccountGovernance(x) => match x {
+            VoteAccountGovernance::ValidatorID(_) => {
+                if config_data.is_validator_id_switchable == false {
+                    return Err(InglError::InvalidData
+                        .utilize("Validator Id for this Validator Instance is not switchable"));
                 }
-                _ => (),
             }
-        }
-                _ => (),
+            _ => (),
+        },
+        _ => (),
     }
 
     let mut general_account_data = Box::new(GeneralData::decode(general_account_info)?);

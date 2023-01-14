@@ -280,7 +280,8 @@ impl UrisAccount {
         Ok(space)
     }
 
-    pub fn get_uri(&self, seed: u16) -> (String, u8) {
+    pub fn get_uri(&self, mut seed: u16) -> (String, u8) {
+        seed = seed % 10000;
         let ind = self.rarities.iter().position(|x| *x > seed).unwrap();
         (
             self.uris[ind][seed as usize % self.uris[ind].len()].clone(),

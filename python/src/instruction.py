@@ -40,7 +40,7 @@ InstructionEnum = Enum(
     "DelegateNFT" / CStruct("log_level"/U8),
     "CreateVoteAccount" / CStruct("log_level"/U8),
     "InitGovernance",
-    "VoteGovernance" / CStruct("numeration" / U32, "vote"/Bool, "log_level"/U8),
+    "VoteGovernance" / CStruct("numeration" / U32, "vote"/Bool, "cnt"/U8, "log_level"/U8),
     "FinalizeGovernance" / CStruct("numeration"/U32, "log_level"/U8),
     "ExecuteGovernance" / CStruct("numeration"/U32, "log_level"/U8),
     

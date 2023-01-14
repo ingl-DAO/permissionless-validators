@@ -84,7 +84,23 @@ pub fn execute_governance(
             .date_finalized
             .error_log("Proposal must be finalized")?
             + 86400 * 30)
-    {}
+    {
+        match governance_data.clone().governance_type {
+            GovernanceType::ProgramUpgrade { .. } => {
+                Err(InglError::TooEarly.utilize("This proposal is not ready to be executed yet"))?
+            }
+            GovernanceType::ConfigAccount(config_governance_type) => {
+                match config_governance_type {
+                    ConfigAccountType::InitialRedemptionFee(_) => Err(InglError::TooEarly
+                        .utilize("This proposal is not ready to be executed yet"))?,
+                    ConfigAccountType::RedemptionFeeDuration(_) => Err(InglError::TooEarly
+                        .utilize("This proposal is not ready to be executed yet"))?,
+                    _ => (),
+                }
+            }
+            _ => (),
+        }
+    }
 
     match governance_data.did_proposal_pass {
         Some(x) => {
@@ -262,7 +278,9 @@ pub fn handle_vote_account_governance_change(
             let new_validator_id_info = next_account_info(account_info_iter)?;
             new_validator_id_info
                 .assert_key_match(&new_validator_id)
-                .error_log("Error @ New Validator ID address verification")?;
+                .error_log(
+                    "Error @ New Validator ID address verification. new Validator id must be a Signer and last account",
+                )?;
             sysvar_clock_info
                 .assert_key_match(&sysvar::clock::id())
                 .error_log("Error @ Clock address verification")?;
