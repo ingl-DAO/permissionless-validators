@@ -11,7 +11,7 @@ use solana_program::{
 use crate::{
     log,
     state::{constants::*, GeneralData, UrisAccount, ValidatorConfig},
-    utils::{get_rent_data_from_account, AccountInfoHelpers, ResultExt},
+    utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
 pub fn process_init(
@@ -74,7 +74,6 @@ pub fn process_init(
     system_program_account_info.assert_key_match(&system_program::id())?;
     spl_token_program_account_info.assert_key_match(&spl_token::id())?;
 
-
     let create_collection_accounts = &[
         payer_account_info.clone(),
         collection_holder_account_info.clone(),
@@ -101,7 +100,7 @@ pub fn process_init(
         rarity_name_space += i.len() + 4;
     }
 
-    let uris_account_creation_size = 8 + rarities.len()*2 + rarity_name_space;
+    let uris_account_creation_size = 8 + rarities.len() * 2 + rarity_name_space;
     let uris_account_creation_lamports = rent_data.minimum_balance(uris_account_creation_size);
     log!(log_level, 2, "Creating Uris Account ... ");
     invoke_signed(
@@ -115,7 +114,7 @@ pub fn process_init(
         &[payer_account_info.clone(), uris_account_info.clone()],
         &[&[URIS_ACCOUNT_SEED, &[uri_account_bump]]],
     )?;
-    log!(log_level, 2, "Created Uris Account ... ");
+    log!(log_level, 2, "Created Uris Account !!!");
 
     let config_data = ValidatorConfig::new(
         is_validator_id_switchable,
@@ -348,7 +347,18 @@ fn mint_collection(
             *payer_account_info.key,
             *mint_authority_account_info.key,
             validator_name.clone(),
-            format!("{}_Unit", validator_name.clone()),
+            format!(
+                "{}_Unit",
+                validator_name
+                    .get(
+                        0..(if validator_name.len() > 5 {
+                            5
+                        } else {
+                            validator_name.len()
+                        })
+                    )
+                    .error_log("error determining collection symbol")?
+            ), //TODO prompt user for symbol
             collection_uri,
             Some(creators),
             300,
