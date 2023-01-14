@@ -26,7 +26,7 @@ pub enum InstructionEnum {
         is_validator_id_switchable: bool,
         unit_backing: u64,
         redemption_fee_duration: u32,
-        program_upgrade_threshold: u8,
+        proposal_quorum: u8,
         creator_royalties: u16,
         rarities: Vec<u16>,
         rarity_names: Vec<String>,
@@ -76,6 +76,7 @@ pub enum InstructionEnum {
     VoteGovernance {
         numeration: u32,
         vote: bool,
+        cnt: u8,
         log_level: u8,
     },
     FinalizeGovernance {

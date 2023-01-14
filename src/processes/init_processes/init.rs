@@ -25,7 +25,7 @@ pub fn process_init(
     is_validator_id_switchable: bool,
     unit_backing: u64,
     redemption_fee_duration: u32,
-    program_upgrade_threshold: u8,
+    proposal_quorum: u8,
     creator_royalties: u16,
     rarities: Vec<u16>,
     rarity_names: Vec<String>,
@@ -74,7 +74,6 @@ pub fn process_init(
     system_program_account_info.assert_key_match(&system_program::id())?;
     spl_token_program_account_info.assert_key_match(&spl_token::id())?;
 
-
     let create_collection_accounts = &[
         payer_account_info.clone(),
         collection_holder_account_info.clone(),
@@ -101,7 +100,7 @@ pub fn process_init(
         rarity_name_space += i.len() + 4;
     }
 
-    let uris_account_creation_size = 8 + rarities.len()*2 + rarity_name_space;
+    let uris_account_creation_size = 8 + rarities.len() * 2 + rarity_name_space;
     let uris_account_creation_lamports = rent_data.minimum_balance(uris_account_creation_size);
     log!(log_level, 2, "Creating Uris Account ... ");
     invoke_signed(
@@ -124,7 +123,7 @@ pub fn process_init(
         initial_redemption_fee,
         unit_backing,
         redemption_fee_duration,
-        program_upgrade_threshold,
+        proposal_quorum,
         creator_royalties,
         init_commission,
         *validator_account_info.key,

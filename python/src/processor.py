@@ -11,7 +11,7 @@ from solana.rpc.async_api import AsyncClient
 from solana.rpc.api import Client
 from rich import print
 
-async def ingl_init(payer_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
+async def ingl_init(payer_keypair: KeypairInput, init_commission: int, max_primary_stake: int, nft_holders_share: int, initial_redemption_fee: int, is_validator_id_switchable: bool, unit_backing: int, redemption_fee_duration: int, proposal_quorum: int, creator_royalties: int, rarities: List[int], rarity_names: List[str], twitter_handle: str, discord_invite: str, validator_name: str, collection_uri: str, website: str, client: AsyncClient, log_level: int = 0) -> str:
     mint_pubkey, _mint_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_NFT_COLLECTION_KEY, 'UTF-8')], get_program_id())
     mint_authority_pubkey, _mint_authority_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_MINT_AUTHORITY_KEY, 'UTF-8')], get_program_id())
     collection_holder_pubkey, _collection_holder_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.COLLECTION_HOLDER_KEY, 'UTF-8')], get_program_id())
@@ -62,7 +62,7 @@ async def ingl_init(payer_keypair: KeypairInput, client: AsyncClient, log_level:
         system_program_meta,
     ]
     # print(accounts)
-    data = build_instruction(InstructionEnum.enum.InglInit(log_level = log_level))
+    data = build_instruction(InstructionEnum.enum.Init(init_commission = init_commission, max_primary_stake = max_primary_stake, nft_holders_share = nft_holders_share, initial_redemption_fee = initial_redemption_fee, is_validator_id_switchable = is_validator_id_switchable, unit_backing = unit_backing, redemption_fee_duration = redemption_fee_duration, proposal_quorum = proposal_quorum, creator_royalties = creator_royalties, rarities = rarities, rarity_names = rarity_names, twitter_handle = twitter_handle, discord_invite = discord_invite, validator_name = validator_name, collection_uri = collection_uri, website = website, log_level = log_level))
     transaction = Transaction()
     transaction.add(ComputeBudgetInstruction().set_compute_unit_limit(250_000, payer_keypair.public_key))
     transaction.add(TransactionInstruction(accounts, get_program_id(), data))
@@ -73,16 +73,15 @@ async def ingl_init(payer_keypair: KeypairInput, client: AsyncClient, log_level:
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
-async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, mint_class: ClassEnum.enum, client: AsyncClient, log_level: int = 0) -> str:
+async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
     mint_authority_pubkey, _mint_authority_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_MINT_AUTHORITY_KEY, 'UTF-8')], get_program_id())
     collection_mint_pubkey, _collection_mint_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_NFT_COLLECTION_KEY, 'UTF-8')], get_program_id())
     pd_pool_pubkey, _pd_pool_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.PD_POOL_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     mint_associated_account_pubkey = assoc_instructions.get_associated_token_address(payer_keypair.public_key, mint_keypair.public_key)
     metaplex_program_id = PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
     metadata_pda, _metadata_pda_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(mint_keypair.public_key)], metaplex_program_id)
-    global_gem_pubkey, _global_gem_bump = PublicKey.find_program_address([bytes(ingl_constants.GLOBAL_GEM_KEY, 'UTF-8')], get_program_id())
     collection_master_edition_pda, _master_edition_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(collection_mint_pubkey), b"edition"], metaplex_program_id)
     mint_edition_pda, _mint_edition_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(mint_keypair.public_key), b"edition"], metaplex_program_id)
     collection_account_pda, _collection_account_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(collection_mint_pubkey)], metaplex_program_id)
@@ -90,6 +89,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, mint
     ingl_config_pubkey, _ingl_config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
     uri_account_pubkey, _uri_account_bump = PublicKey.find_program_address([bytes(ingl_constants.URIS_ACCOUNT_SEED, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
     general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
+    
     payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
     mint_account_meta = AccountMeta(mint_keypair.public_key, True, True)
     pd_pool_meta = AccountMeta(pd_pool_pubkey, False, True)
@@ -142,7 +142,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, mint
         metadata_program_id,
     ]
 
-    instruction_data = build_instruction(InstructionEnum.enum.MintNft(), log_level = log_level, mint_class = mint_class)
+    instruction_data = build_instruction(InstructionEnum.enum.MintNft(), log_level = log_level)
     transaction = Transaction()
     transaction.add(ComputeBudgetInstruction().set_compute_unit_limit(400_000, payer_keypair.public_key))
     transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
@@ -151,7 +151,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, mint
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 
 
@@ -195,7 +195,7 @@ async def delegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, ex
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, expected_vote_pubkey: PubkeyInput, client: AsyncClient, log_level: int = 0) -> str: #TODO: Need to include the 3 new accounts: Authorized_withdrawer, validator_info, and the system program in this instruction, without which instruction will consistently fail
     pd_pool_pubkey, _pd_pool_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.PD_POOL_KEY, 'UTF-8')], get_program_id())
@@ -205,10 +205,7 @@ async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, 
     expected_vote_data_pubkey, _expected_vote_data_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_DATA_ACCOUNT_KEY, 'UTF-8'), bytes(expected_vote_pubkey.public_key)], get_program_id())
     authorized_withdrawer_key, _authorized_withdrawer_bump = PublicKey.find_program_address([bytes(ingl_constants.AUTHORIZED_WITHDRAWER_KEY, 'UTF-8'), bytes(expected_vote_pubkey.public_key) ], get_program_id())
     
-    data = await client.get_account_info(expected_vote_data_pubkey)
-    validator_id = PublicKey(InglVoteAccountData.parse(data.value.data).validator_id)
 
-    
     payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
     mint_account_meta = AccountMeta(mint_pubkey.public_key, False, True)
     gem_account_meta = AccountMeta(gem_account_pubkey, False, True)
@@ -220,7 +217,6 @@ async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, 
     
     vote_account_meta = AccountMeta(expected_vote_pubkey.public_key, False, True)
     authorized_withdrawer_meta = AccountMeta(authorized_withdrawer_key, False, True)
-    validator_account_meta =  AccountMeta(validator_id, False, False)
     system_program_meta = AccountMeta(system_program.SYS_PROGRAM_ID, False, False)
 
 
@@ -249,7 +245,7 @@ async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, 
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 async def create_vote_account(validator_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
     expected_vote_pubkey, _expected_vote_pubkey_nonce = PublicKey.find_program_address([bytes(ingl_constants.VOTE_ACCOUNT_KEY, "UTF-8")], get_program_id())
@@ -297,9 +293,9 @@ async def create_vote_account(validator_keypair: KeypairInput, client: AsyncClie
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
-async def init_rebalance(payer_keypair: KeypairInput, vote_account_pubkey: PubkeyInput, client: AsyncClient, log_level: int = 0) -> str:
+async def init_rebalance(payer_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
     expected_stake_key, _expected_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     t_stake_key, _t_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.T_STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     t_withdraw_key, _t_withdraw_bump = PublicKey.find_program_address([bytes(ingl_constants.T_WITHDRAW_KEY, 'UTF-8')], get_program_id())
@@ -353,7 +349,7 @@ async def init_rebalance(payer_keypair: KeypairInput, vote_account_pubkey: Pubke
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 async def finalize_rebalance(payer_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
     expected_stake_key, _expected_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
@@ -404,7 +400,7 @@ async def finalize_rebalance(payer_keypair: KeypairInput, client: AsyncClient, l
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 async def process_rewards(payer_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
     ingl_team_account_pubkey, _ita_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_TEAM_ACCOUNT, 'UTF-8')], get_program_id())
@@ -453,7 +449,7 @@ async def process_rewards(payer_keypair: KeypairInput, client: AsyncClient, log_
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 async def nft_withdraw(payer_keypair: KeypairInput, mints: List[PublicKey], client: AsyncClient, log_level: int = 0) -> str:
     authorized_withdrawer_key, _authorized_withdrawer_bump = PublicKey.find_program_address([bytes(ingl_constants.AUTHORIZED_WITHDRAWER_KEY, 'UTF-8'), bytes(vote_account_id.public_key) ], get_program_id())
@@ -496,7 +492,7 @@ async def nft_withdraw(payer_keypair: KeypairInput, mints: List[PublicKey], clie
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 async def inject_testing_data(payer_keypair: KeypairInput, mints: List[PublicKey], vote_account_id: PubkeyInput, client: AsyncClient, log_level: int = 0) -> str:
     expected_vote_data_pubkey, _expected_vote_data_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_DATA_ACCOUNT_KEY, 'UTF-8'), bytes(vote_account_id.public_key)], get_program_id())
@@ -534,35 +530,59 @@ async def inject_testing_data(payer_keypair: KeypairInput, mints: List[PublicKey
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
-async def create_program_upgrade_proposal(payer_keypair: KeypairInput, buffer_address: PubkeyInput, proposal_numeration: int, code_link: String,  client: AsyncClient, log_level: int = 0) -> str:
-    ingl_team_account_pubkey, _ita_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_TEAM_ACCOUNT, 'UTF-8')], get_program_id())
-    proposal_account_pubkey, _proposal_account_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.UPGRADE_PROPOSAL_KEY, 'UTF-8'), (proposal_numeration).to_bytes(4, "big")], get_program_id())
-    global_gem_pubkey, _global_gem_bump = PublicKey.find_program_address([bytes(ingl_constants.GLOBAL_GEM_KEY, 'UTF-8')], get_program_id())
+async def init_governance(payer_keypair: KeypairInput, mint: PubkeyInput, client: AsyncClient, governance_type: Optional[GovernanceType.enum] = None, config_account_type:Optional[ConfigAccountType.enum] = None, vote_account_governance: Optional[VoteAccountGovernance.enum] = None,  log_level: int = 0) -> str:
+    vote_account_pubkey, _vote_account_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_ACCOUNT_KEY, 'UTF-8'), bytes(payer_keypair.public_key)], get_program_id())
+    general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_KEY, 'UTF-8'), bytes(payer_keypair.public_key)], get_program_id())
+    config_account_pubkey, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.CONFIG_ACCOUNT_KEY, 'UTF-8'), bytes(payer_keypair.public_key)], get_program_id())
+    nft_account_data_pubkey, _nft_account_data_bump = PublicKey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_DATA_KEY, 'UTF-8'), bytes(mint.public_key)], get_program_id())
+    associated_account_key = assoc_instructions.get_associated_token_address(payer_keypair.public_key, mint.public_key)
 
+    data = await client.get_account_info(general_account_pubkey)
+    proposal_numeration = PublicKey(GeneralData.parse(data.value.data).proposal_numeration)
+    print(f"proposal_numeration: {proposal_numeration}")
     
+    proposal_pubkey, _proposal_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_PROPOSAL_KEY, 'UTF-8'), bytes(proposal_numeration)], get_program_id())
+
     payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True)
-    buffer_address_meta = AccountMeta(pubkey = buffer_address.public_key, is_signer= False, is_writable =True)
-    global_gem_meta = AccountMeta(pubkey = global_gem_pubkey, is_signer = False, is_writable = True)
-    proposal_account_meta = AccountMeta(pubkey = proposal_account_pubkey, is_signer = False, is_writable = True)
-    ingl_team_account_meta = AccountMeta(pubkey = ingl_team_account_pubkey, is_signer = False, is_writable = True)
+    vote_account_meta = AccountMeta(pubkey = vote_account_pubkey, is_signer = False, is_writable = False)
+    proposal_account_meta = AccountMeta(pubkey = proposal_pubkey, is_signer = False, is_writable = True)
+    general_account_meta = AccountMeta(pubkey = general_account_pubkey, is_signer = False, is_writable = True)
+    mint_account_meta = AccountMeta(pubkey = mint.public_key, is_signer = False, is_writable = False)
+    associated_account_meta = AccountMeta(pubkey = associated_account_key, is_signer = False, is_writable = False)
+    nft_account_data_meta = AccountMeta(pubkey = nft_account_data_pubkey, is_signer = False, is_writable = False)
+    config_account_meta = AccountMeta(pubkey = config_account_pubkey, is_signer = False, is_writable = False)
+
+
+
     system_program_meta = AccountMeta(pubkey = system_program.SYS_PROGRAM_ID, is_signer = False, is_writable = False)
 
 
+
     accounts = [
         payer_account_meta,
-        ingl_team_account_meta,
-        buffer_address_meta,
+        vote_account_meta,
         proposal_account_meta,
-        global_gem_meta,
-
-        system_program_meta,
-        system_program_meta,
+        general_account_meta,
+        mint_account_meta,
+        associated_account_meta,
+        nft_account_data_meta,
+        config_account_meta,
     ]
+    instruction_data = build_instruction(InstructionEnum.enum.InitGovernance(), governance_type=governance_type, config_account_type=config_account_type, vote_account_governance=vote_account_governance, log_level=log_level)
+    
+    if instruction_data[1] == 1:
+        buffer_account_key = PublicKey(instruction_data[2:34])
+        buffer_account_meta = AccountMeta(pubkey = buffer_account_key, is_signer = False, is_writable = True)
+        print("buffer_account_key: ", buffer_account_key)
+        accounts.append(buffer_account_meta)
+        
+    accounts += [
+        system_program_meta,
+        ]
 
     # print(accounts)
-    instruction_data = build_instruction(InstructionEnum.enum.CreateProgramUpgradeProposal(log_level = log_level, code_link = code_link))
     transaction = Transaction()
     transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
     try:
@@ -570,36 +590,38 @@ async def create_program_upgrade_proposal(payer_keypair: KeypairInput, buffer_ad
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
-async def vote_program_upgrade_proposal(payer_keypair: KeypairInput, vote: Bool, upgrade_proposal_pubkey: Optional[PubkeyInput], upgrade_numeration: Optional[int], vote_account_proposal_pubkey: Optional[PubkeyInput],  vote_account_numeration: Optional[int], client: AsyncClient, log_level: int = 0) -> str:
-    global_gem_pubkey, _global_gem_bump = PublicKey.find_program_address([bytes(ingl_constants.GLOBAL_GEM_KEY, 'UTF-8')], get_program_id())
-    
-    data = await client.get_account_info(global_gem_pubkey)
-    global_gems = GlobalGems.parse(data.value.data)
-    cnt = global_gems.upgrade_proposal_numeration
-    proposal_account_pubkey, proposal_numeration =  parse_upgrade_proposal_id(upgrade_proposal_pubkey.public_key, upgrade_numeration, cnt)
-    vote_account_pubkey, vote_account_numeration = parse_validator_proposal_id(vote_account_proposal_pubkey.public_key, vote_account_numeration, global_gems.validator_proposal_numeration)
-    expected_vote_data_pubkey, _expected_vote_data_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_DATA_ACCOUNT_KEY, 'UTF-8'), bytes(vote_account_pubkey)], get_program_id())
-    
+async def vote_governance(payer_keypair: KeypairInput, vote: Bool, proposal_pubkey: Optional[PubkeyInput], proposal_numeration: int, mints: List[PublicKey], client: AsyncClient, log_level: int = 0) -> str:
+    proposal_pubkey, _proposal_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_PROPOSAL_KEY, 'UTF-8'), bytes(proposal_numeration)], get_program_id())
+
     
     payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True) # payer is the validator ID.
-    proposal_account_meta = AccountMeta(pubkey = proposal_account_pubkey, is_signer = False, is_writable = True)
-    ingl_vote_data_account_meta = AccountMeta(pubkey = expected_vote_data_pubkey, is_signer = False, is_writable = False)
-    vote_account_meta = AccountMeta(pubkey = vote_account_pubkey, is_signer = False, is_writable = False)
-
+    proposal_account_meta = AccountMeta(pubkey = proposal_pubkey, is_signer = False, is_writable = True)
+    system_program_meta = AccountMeta(pubkey = system_program.SYS_PROGRAM_ID, is_signer = False, is_writable = False)
 
     accounts = [
-        proposal_account_meta,
-        vote_account_meta,
         payer_account_meta,
-        ingl_vote_data_account_meta,
+        proposal_account_meta,
+    ]
+
+    for mint in mints:
+        associated_account_key = assoc_instructions.get_associated_token_address(payer_keypair.public_key, mint)
+        nft_account_pubkey, _nft_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_NFT_KEY, 'UTF-8'), bytes(mint)], get_program_id())
+
+        nft_account_meta = AccountMeta(pubkey = nft_account_pubkey, is_signer = False, is_writable = True)
+        mint_account_meta = AccountMeta(pubkey = mint, is_signer = False, is_writable = False)
+        associated_account_meta = AccountMeta(pubkey = associated_account_key, is_signer = False, is_writable = False)
+        accounts += [
+            nft_account_meta,
+            mint_account_meta,
+            associated_account_meta,
+        ]
+    accounts.append(system_program_meta)
         
 
-    ]
-
     # print(accounts)
-    instruction_data = build_instruction(InstructionEnum.enum.VoteProgramUpgradeProposal(log_level = log_level, numeration = proposal_numeration, vote=vote, validator_proposal_numeration = vote_account_numeration))
+    instruction_data = build_instruction(InstructionEnum.enum.VoteGovernance(log_level = log_level, numeration = proposal_numeration, vote=vote, cnt = len(mints)))
     transaction = Transaction()
     transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
     try:
@@ -607,54 +629,31 @@ async def vote_program_upgrade_proposal(payer_keypair: KeypairInput, vote: Bool,
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
-async def finalize_program_upgrade_proposal(payer_keypair: KeypairInput, upgrade_proposal_pubkey: Optional[PubkeyInput], upgrade_numeration: Optional[int], client: AsyncClient, log_level: int = 0) -> str:
-    ingl_team_account_pubkey, _ita_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_TEAM_ACCOUNT, 'UTF-8')], get_program_id())
-    global_gem_pubkey, _global_gem_bump = PublicKey.find_program_address([bytes(ingl_constants.GLOBAL_GEM_KEY, 'UTF-8')], get_program_id())
-    
-    programdata_id, _bump = PublicKey.find_program_address([bytes(get_program_id())], ingl_constants.BPF_LOADER_KEY)
-    pda_authority_key = PublicKey.find_program_address([b"authority", bytes(get_program_id())], get_program_id())[0]
-    data = await client.get_account_info(global_gem_pubkey)
-    global_gems = GlobalGems.parse(data.value.data)
-    cnt = global_gems.upgrade_proposal_numeration
-    proposal_account_pubkey, proposal_numeration =  parse_upgrade_proposal_id(upgrade_proposal_pubkey.public_key, upgrade_numeration, cnt)
+async def finalize_governance(payer_keypair: KeypairInput, proposal_numeration: int, client: AsyncClient, log_level: int = 0) -> str:
+    proposal_account_key, _proposal_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_PROPOSAL_KEY, 'UTF-8'), bytes(proposal_numeration)], get_program_id())
+    config_account_key, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_KEY, 'UTF-8')], get_program_id())
+    general_account_key, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_GENERAL_KEY, 'UTF-8')], get_program_id())
 
-    proposal_data = await client.get_account_info(proposal_account_pubkey)
-    proposal_data = ProgramUpgradeData.parse(data.value.data)
-    buffer_address = proposal_data.buffer_address
-    
     payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True) # payer is the validator ID.
-    proposal_account_meta = AccountMeta(pubkey = proposal_account_pubkey, is_signer = False, is_writable = True)
-    global_gem_meta = AccountMeta(pubkey = global_gem_pubkey, is_signer = False, is_writable = True)
-    programdata_meta = AccountMeta(pubkey=programdata_id, is_signer=False, is_writable=True)
-    upgraded_program_meta = AccountMeta(pubkey=get_program_id(), is_signer=False, is_writable=True)
-    buffer_address_meta = AccountMeta(pubkey=buffer_address, is_signer=False, is_writable=True)
-    spilling_address_info_meta = AccountMeta(pubkey=ingl_team_account_pubkey, is_signer=True, is_writable=True)
     sysvar_rent_account_meta = AccountMeta(pubkey = SYSVAR_RENT_PUBKEY, is_signer = False, is_writable = False)
     sysvar_clock_account_meta = AccountMeta(pubkey = SYSVAR_CLOCK_PUBKEY, is_signer = False, is_writable = False)
-    authority_meta = AccountMeta(pubkey = pda_authority_key, is_signer = False, is_writable = True)
-    bpf_loader_meta = AccountMeta(pubkey = ingl_constants.BPF_LOADER_KEY, is_signer = False, is_writable = True)
-
+    proposal_account_meta = AccountMeta(pubkey = proposal_account_key, is_signer = False, is_writable = True)
+    config_account_meta = AccountMeta(pubkey = config_account_key, is_signer = False, is_writable = True)
+    general_account_meta = AccountMeta(pubkey = general_account_key, is_signer = False, is_writable = True)
 
     accounts = [
         payer_account_meta,
-        upgraded_program_meta,
-        buffer_address_meta,
-        authority_meta,
-        spilling_address_info_meta,
-        programdata_meta,
         sysvar_rent_account_meta,
         sysvar_clock_account_meta,
         proposal_account_meta,
-        global_gem_meta,
-
-
-        bpf_loader_meta,
+        config_account_meta,
+        general_account_meta,
     ]
 
     # print(accounts)
-    instruction_data = build_instruction(InstructionEnum.enum.FinalizeProgramUpgradeProposal(log_level = log_level, proposal_numeration = proposal_numeration))
+    instruction_data = build_instruction(InstructionEnum.enum.FinalizeGovernance(log_level = log_level, numeration = proposal_numeration))
     transaction = Transaction()
     transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
     try:
@@ -662,7 +661,103 @@ async def finalize_program_upgrade_proposal(payer_keypair: KeypairInput, upgrade
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
+
+
+
+async def execute_governance(payer_keypair: KeypairInput, proposal_numeration: int, client: AsyncClient, log_level: int = 0) -> str:
+    proposal_account_key, _proposal_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_PROPOSAL_KEY, 'UTF-8'), bytes(proposal_numeration)], get_program_id())
+    config_account_key, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_KEY, 'UTF-8')], get_program_id())
+    general_account_key, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_GENERAL_KEY, 'UTF-8')], get_program_id())
+    
+    proposal_data = await client.get_account_info(proposal_account_key)
+    proposal_data = proposal_data.value.data
+
+    payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True) # payer is the validator ID.
+    sysvar_rent_account_meta = AccountMeta(pubkey = SYSVAR_RENT_PUBKEY, is_signer = False, is_writable = False)
+    sysvar_clock_account_meta = AccountMeta(pubkey = SYSVAR_CLOCK_PUBKEY, is_signer = False, is_writable = False)
+    proposal_account_meta = AccountMeta(pubkey = proposal_account_key, is_signer = False, is_writable = True)
+    config_account_meta = AccountMeta(pubkey = config_account_key, is_signer = False, is_writable = True)
+    general_account_meta = AccountMeta(pubkey = general_account_key, is_signer = False, is_writable = True)
+
+    accounts = [
+        payer_account_meta,
+        sysvar_clock_account_meta,
+        proposal_account_meta,
+        config_account_meta,
+        general_account_meta,
+    ]
+
+    loc = 4+4+1
+    if proposal_data[loc] == 1:
+        loc += 1 + 4
+    else:
+        loc += 1
+    
+    if proposal_data[loc] == 1:
+        loc += 1 + 1
+    else:
+        loc += 1
+    
+    loc += 1
+
+    num_votes = int.from_bytes(proposal_data[loc:loc+4], "big")
+    loc += 4
+    loc += num_votes * 5
+    governance_type = proposal_data[loc]
+    loc += 1
+    if governance_type == 0:
+        pass
+    elif governance_type == 1:
+        buffer_account_key = PublicKey(proposal_data[loc:loc+32])
+        programdata_key, _programdata_bump = PublicKey.find_program_address([bytes(get_program_id())], ingl_constants.BPF_LOADER_UPGRADEABLE)
+        upgrade_authority_key, _upgrade_authority_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_PROGRAM_AUTHORITY_KEY, 'UTF-8'), bytes(get_program_id())], get_program_id())
+
+        upgraded_program_meta = AccountMeta(pubkey = get_program_id(), is_signer = False, is_writable = False)
+        buffer_account_meta = AccountMeta(pubkey = buffer_account_key, is_signer = False, is_writable = True)
+        programdata_account_meta = AccountMeta(pubkey = programdata_key, is_signer = False, is_writable = True)
+        upgrade_authority_account_meta = AccountMeta(pubkey = upgrade_authority_key, is_signer = False, is_writable = True)
+
+        accounts += [
+            upgraded_program_meta,
+            buffer_account_meta,
+            payer_account_meta,
+            programdata_account_meta,
+            upgrade_authority_account_meta,
+            sysvar_rent_account_meta,
+            sysvar_clock_account_meta,
+        ]
+    elif governance_type == 2:
+        vote_account_governance_type = proposal_data[loc]
+        loc += 1
+        vote_account_key, _vote_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_VOTE_KEY, 'UTF-8'),], get_program_id())
+        authorized_withdrawer_key, _authorized_withdrawer_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_VOTE_AUTHORIZED_WITHDRAWER_KEY, 'UTF-8'),], get_program_id())
+
+        vote_account_meta = AccountMeta(pubkey = vote_account_key, is_signer = False, is_writable = True)
+        authorized_withdrawer_account_meta = AccountMeta(pubkey = authorized_withdrawer_key, is_signer = False, is_writable = False)
+        
+        accounts += [
+            vote_account_meta,
+            authorized_withdrawer_account_meta,
+        ]
+
+        if vote_account_governance_type == 0:
+            accounts.append(sysvar_clock_account_meta)
+            accounts.append(payer_account_meta)
+
+
+    # print(accounts)
+    instruction_data = build_instruction(InstructionEnum.enum.ExecuteGovernance(log_level = log_level, numeration = proposal_numeration))
+    transaction = Transaction()
+    transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
+    try:
+        t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
+        await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+    except Exception as e:
+        return(f"Error: {e}")
+
+
 
 async def reset_uris(payer_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str :
     config_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_ACCOUNT_KEY, 'UTF-8')], get_program_id())
@@ -689,7 +784,7 @@ async def reset_uris(payer_keypair: KeypairInput, client: AsyncClient, log_level
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
-        return(f"[warning]Error: {e}[/warning]")
+        return(f"Error: {e}")
 
 def upload_uris(payer_keypair: KeypairInput, uris: List[str], rarity: int, client: Client, log_level: int = 0) -> str:
     config_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_ACCOUNT_KEY, 'UTF-8')], get_program_id())
