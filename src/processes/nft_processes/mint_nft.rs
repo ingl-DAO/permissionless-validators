@@ -505,7 +505,7 @@ pub fn process_mint_nft(
         nft_vrf_state_account_info.clone(),
         sysvar_rent_account_info.clone(),
     ];
-    create_vrf_account(program_id, create_vrf_accounts, 0, log_level)?;
+    create_vrf_state_account(program_id, create_vrf_accounts, 0, log_level)?;
 
     let request_randomness_accounts = &[
         payer_account_info.clone(),
@@ -543,7 +543,7 @@ pub fn process_mint_nft(
     Ok(())
 }
 
-fn create_vrf_account(
+fn create_vrf_state_account(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     max_result: u64,
