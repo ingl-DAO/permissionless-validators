@@ -2,8 +2,8 @@ use crate::{
     error::InglError,
     log,
     state::{
-        constants::{*},
-        GovernanceData, ValidatorConfig, GeneralData, GovernanceType, VoteAccountGovernance,
+        constants::*, GeneralData, GovernanceData, GovernanceType, ValidatorConfig,
+        VoteAccountGovernance,
     },
     utils::{AccountInfoHelpers, OptionExt, ResultExt},
 };
@@ -49,11 +49,10 @@ pub fn finalize_governance(
             ],
         )
         .error_log("failed to assert_pda_input for proposal_account_info")?;
-    
-    let (_general_account_data, _general_account_data_bump) = general_account_info.assert_seed(
-        program_id,
-        &[GENERAL_ACCOUNT_SEED.as_ref()],
-    ).error_log("failed to assert_pda_input for general_account_info")?;
+
+    let (_general_account_data, _general_account_data_bump) = general_account_info
+        .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
+        .error_log("failed to assert_pda_input for general_account_info")?;
 
     let (_ingl_config_id, _ingl_config_bump) = ingl_config_account
         .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
@@ -79,7 +78,7 @@ pub fn finalize_governance(
     log!(log_level, 0, "Done with account validations ...");
     let total_votes_expected = config_data
         .max_primary_stake
-        .checked_div(config_data.unit_stake)
+        .checked_div(config_data.unit_backing)
         .error_log("failed to calculate total_votes_expected")?
         as u32;
     let mut total_yes_votes: u32 = 0;
@@ -92,7 +91,13 @@ pub fn finalize_governance(
         }
     }
 
-    if total_no_votes + total_yes_votes <= (config_data.proposal_quorum as u32).checked_mul(total_votes_expected).error_log("Error at quorum mult")?.checked_div(100).error_log("Error Calculating quorum percentage")? {
+    if total_no_votes + total_yes_votes
+        <= (config_data.proposal_quorum as u32)
+            .checked_mul(total_votes_expected)
+            .error_log("Error at quorum mult")?
+            .checked_div(100)
+            .error_log("Error Calculating quorum percentage")?
+    {
         Err(InglError::NotEnoughVotes.utilize(""))?
     }
 
@@ -105,14 +110,20 @@ pub fn finalize_governance(
         governance_data.did_proposal_pass = Some(false);
     } else if total_yes_votes as f64 >= total_votes_expected as f64 * 4.0 / 5.0 {
         governance_data.did_proposal_pass = Some(true);
-        match governance_data.clone().governance_type{
-            GovernanceType::ProgramUpgrade{buffer_account: _, code_link: _} => general_data.last_feeless_redemption_date = clock_data.unix_timestamp as u32 + (86400 * 30),
-            GovernanceType::VoteAccountGovernance(x) =>{
-                match x{
-                    VoteAccountGovernance::ValidatorID(_) => general_data.last_validated_validator_id_proposal = proposal_numeration,
-                    _ => ()
-                }
+        match governance_data.clone().governance_type {
+            GovernanceType::ProgramUpgrade {
+                buffer_account: _,
+                code_link: _,
+            } => {
+                general_data.last_feeless_redemption_date =
+                    clock_data.unix_timestamp as u32 + (86400 * 30)
             }
+            GovernanceType::VoteAccountGovernance(x) => match x {
+                VoteAccountGovernance::ValidatorID(_) => {
+                    general_data.last_validated_validator_id_proposal = proposal_numeration
+                }
+                _ => (),
+            },
             _ => (),
         }
     }

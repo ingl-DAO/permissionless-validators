@@ -223,10 +223,13 @@ pub fn process_mint_nft(
     let space = 82;
     let rent_lamports = rent_data.minimum_balance(space);
 
-    let mint_cost = config_data.unit_stake;
+    let mint_cost = config_data.unit_backing;
 
     general_data.mint_numeration += 1;
-    general_data.total_delegated += 1;
+    general_data.total_delegated += mint_cost;
+    if general_data.total_delegated > config_data.max_primary_stake{
+        Err(InglError::TooLate.utilize("Max primary stake reached"))?
+    }
 
     if general_data.dealloced >= mint_cost {
         general_data.dealloced -= mint_cost;
@@ -238,10 +241,7 @@ pub fn process_mint_nft(
     //tranfer token from one account to an other
     invoke(
         &system_instruction::transfer(payer_account_info.key, &pd_pool_id, mint_cost),
-        &[
-            payer_account_info.clone(),
-            pd_pool_account_info.clone(),
-        ],
+        &[payer_account_info.clone(), pd_pool_account_info.clone()],
     )
     .error_log("Error @ minting_pool_account_info transfer")?;
 
@@ -278,7 +278,7 @@ pub fn process_mint_nft(
             payer_account_info.key,
             payer_account_info.key,
             nft_mint_account_info.key,
-            &spl_token_program_account_info.key
+            &spl_token_program_account_info.key,
         ),
         &[
             payer_account_info.clone(),

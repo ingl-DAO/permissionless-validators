@@ -2,7 +2,6 @@ from typing import Optional
 from borsh_construct import *
 from solana.publickey import PublicKey
 from solana.transaction import TransactionInstruction, AccountMeta
-from .state import ClassEnum, Rarity
 
 
 InitStruct = CStruct(

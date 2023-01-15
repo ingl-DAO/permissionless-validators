@@ -80,7 +80,7 @@ pub struct ValidatorConfig {
     pub max_primary_stake: u64,
     pub nft_holders_share: u8,
     pub initial_redemption_fee: u8,
-    pub unit_stake: u64,
+    pub unit_backing: u64,
     pub redemption_fee_duration: u32,
     pub proposal_quorum: u8,
     pub creator_royalties: u16,
@@ -121,7 +121,7 @@ impl ValidatorConfig {
             Err(InglError::InvalidConfigData
                 .utilize("Initial redemption fee must be less than 25%"))?
         }
-        if self.unit_stake < get_min_stake_account_lamports() {
+        if self.unit_backing < get_min_stake_account_lamports() {
             Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1 Sol"))?
         }
         if self.max_primary_stake < get_min_stake_account_lamports() {
@@ -185,7 +185,7 @@ impl ValidatorConfig {
             max_primary_stake,
             nft_holders_share,
             initial_redemption_fee,
-            unit_stake: unit_backing,
+            unit_backing,
             redemption_fee_duration,
             proposal_quorum,
             creator_royalties,
@@ -306,15 +306,15 @@ pub struct VoteReward {
     pub epoch_number: u64,
     /// This is the amount of rewards earned.
     pub total_reward: u64,
-    /// This is the total primary staked nft count of the vote account.
-    pub total_stake: u32,
+    /// This is the total primary staked nft sol of the vote account.
+    pub total_stake: u64,
     /// This is the total reward that will be distributed to primary stakers.
     pub nft_holders_reward: u64,
 }
 
 impl VoteReward {
     pub fn get_space() -> usize {
-        28
+        32
     }
 }
 
@@ -352,7 +352,7 @@ pub struct GeneralData {
     pub mint_numeration: u32,
     pub pending_delegation_total: u64,
     pub dealloced: u64,
-    pub total_delegated: u32,
+    pub total_delegated: u64,
     pub last_withdraw_epoch: u64,
     pub last_total_staked: u64,
     pub is_t_stake_initialized: bool,

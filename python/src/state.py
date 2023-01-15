@@ -36,40 +36,6 @@ class Constants:
     VOTE_PROGRAM_ID = PublicKey("Vote111111111111111111111111111111111111111")
     BPF_LOADER_UPGRADEABLE = PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
 
-ClassEnum = Enum(
-    "Ruby",
-    "Diamond",
-    "Sapphire",
-    "Emerald",
-    "Serendibite",
-    "Benitoite",
-
-    enum_name = "ClassEnum",
-)
-
-Rarity = Enum(
-    "Common",
-    "Uncommon",
-    "Rare",
-    "Exalted",
-    "Mythic",
-
-    enum_name = "Rarity",
-)
-
-def int_from_class_enum(class_enum: ClassEnum.enum) -> int:
-    if class_enum == ClassEnum.enum.Ruby():
-        return 0
-    elif class_enum == ClassEnum.enum.Diamond():
-        return 1
-    elif class_enum == ClassEnum.enum.Sapphire():
-        return 2
-    elif class_enum == ClassEnum.enum.Emerald():
-        return 3
-    elif class_enum == ClassEnum.enum.Serendibite():
-        return 4
-    elif class_enum == ClassEnum.enum.Benitoite():
-        return 5
 
 def keypair_from_json(filepath):
     keypair = Keypair.from_secret_key(json.load(open(filepath)))

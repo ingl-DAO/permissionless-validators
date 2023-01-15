@@ -1,11 +1,10 @@
 use crate::{
     error::InglError,
     log,
-    state::{
-        constants::*, FundsLocation, GeneralData, NftData,
-    },
+    state::{constants::*, FundsLocation, GeneralData, NftData},
     utils::{
-        get_clock_data, get_rent_data, OptionExt, ResultExt, AccountInfoHelpers, verify_nft_ownership,
+        get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, OptionExt,
+        ResultExt,
     },
 };
 
@@ -45,19 +44,23 @@ pub fn nft_withdraw(
 
     log!(log_level, 0, "Done with main account collection");
 
-    let (_general_account_pubkey, _general_account_bump) = general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
-    .error_log("Error: failed to assert pda input for vote_data_account_info")?;
-    vote_account_info.assert_key_match(&vote::program::id())
+    let (_general_account_pubkey, _general_account_bump) = general_account_info
+        .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
+        .error_log("Error: failed to assert pda input for vote_data_account_info")?;
+    vote_account_info
+        .assert_key_match(&vote::program::id())
         .error_log("Error: vote_account_info must be owned by the spl_program::id()")?;
-    general_account_info.assert_owner(program_id)
+    general_account_info
+        .assert_owner(program_id)
         .error_log("Error: general_account_info must be owned by the program")?;
-    let general_data =
-        Box::new(GeneralData::decode(general_account_info)?);
+    let general_data = Box::new(GeneralData::decode(general_account_info)?);
 
-    let (_authorized_withdrawer, authorized_withdrawer_bump) = authorized_withdrawer_info.assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])
-    .error_log("Error: failed to assert pda input for authorized_withdrawer_info")?;
+    let (_authorized_withdrawer, authorized_withdrawer_bump) = authorized_withdrawer_info
+        .assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])
+        .error_log("Error: failed to assert pda input for authorized_withdrawer_info")?;
 
-    payer_account_info.assert_signer()
+    payer_account_info
+        .assert_signer()
         .error_log("Error: Payer must be Signer, couldn't find its signature")?;
 
     log!(log_level, 0, "Done with main account assertions");
@@ -68,11 +71,18 @@ pub fn nft_withdraw(
         let mint_account_info = next_account_info(account_info_iter)?;
         let nft_account_data_info = next_account_info(account_info_iter)?;
 
-        verify_nft_ownership(payer_account_info, mint_account_info, nft_account_data_info, associated_token_account_info, program_id).error_log("Error @ nft ownership verification")?;
+        verify_nft_ownership(
+            payer_account_info,
+            mint_account_info,
+            nft_account_data_info,
+            associated_token_account_info,
+            program_id,
+        )
+        .error_log("Error @ nft ownership verification")?;
 
         let mut ingl_nft_data = NftData::decode(nft_account_data_info)
-                .error_log("Error: @nft_account_data_info deserialization")?;
-                
+            .error_log("Error: @nft_account_data_info deserialization")?;
+
         if let FundsLocation::Delegated = ingl_nft_data.funds_location {
         } else {
             Err(InglError::InvalidFundsLocation.utilize("Gem's fund location"))?
@@ -98,9 +108,8 @@ pub fn nft_withdraw(
         nft_account_data_info
             .realloc(new_space, false)
             .error_log("Error: @realloc of nft_account_data_info")?;
-        let total_reward =
-            calculate_total_reward(&ingl_nft_data, &general_data, log_level)
-                .error_log("Error: @calculate_total_reward")?;
+        let total_reward = calculate_total_reward(&ingl_nft_data, &general_data, log_level)
+            .error_log("Error: @calculate_total_reward")?;
         ingl_nft_data.last_withdrawal_epoch = Some(clock_data.epoch);
         ingl_nft_data.all_withdraws.push(total_reward as u64);
         general_rewards = general_rewards.checked_add(total_reward as u64).unwrap();
@@ -131,7 +140,6 @@ pub fn nft_withdraw(
     Ok(())
 }
 
-
 ///UNCHECKED. Calculates the total reward for a specific gem, for the epochs that the gem was delegated without rewards being withdrawn.
 pub fn calculate_total_reward(
     nft_account_data: &NftData,
@@ -149,7 +157,7 @@ pub fn calculate_total_reward(
             .last_delegation_epoch
             .error_log("Error: Last delegation epoch can't be None at this stage")?
     };
-
+    //TODO: users could delegate right before the end of an epoch, then after the epoch ends, they could run process_rewards, then run the withdraw function. This could be an abuse of the system. A solution might be to make sure than x.epoch_number > 1 + interested_epoch, find x in the line below.
     let interested_index = general_data.vote_rewards.iter().position(|x| x.epoch_number > interested_epoch).error_log("Error: couldn't find an epoch greater than both the last delegation epoch and the last withdrrawal epoch.")?;
     let mut total_reward: u128 = 0;
     for i in interested_index..general_data.vote_rewards.len() {
@@ -157,7 +165,11 @@ pub fn calculate_total_reward(
         log!(log_level, 1, "epoch_reward: {:?}", epoch_reward);
         total_reward = total_reward
             .checked_add(
-                epoch_reward.nft_holders_reward.checked_div(epoch_reward.total_stake.into()).error_log("Error calculating unit reward for an epoch")?.into()
+                epoch_reward
+                    .nft_holders_reward
+                    .checked_div(epoch_reward.total_stake.into())
+                    .error_log("Error calculating unit reward for an epoch")?
+                    .into(),
             )
             .error_log("Error: total_reward")?;
     }
