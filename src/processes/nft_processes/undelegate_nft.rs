@@ -32,14 +32,18 @@ pub fn undelegate_gem(
     system_program_account_info
         .assert_key_match(&solana_program::system_program::id())
         .error_log("Error: @system_program_account_ingo key assertion")?;
-    general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
+    general_account_info
+        .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("Error: @general_account_info seed assertion")?;
-    config_account_info.assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
+    config_account_info
+        .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
         .error_log("Error: @config_account_info seed assertion")?;
 
-    general_account_info.assert_owner(program_id)
+    general_account_info
+        .assert_owner(program_id)
         .error_log("Error: @general_account_info owner assertion")?;
-    config_account_info.assert_owner(program_id)
+    config_account_info
+        .assert_owner(program_id)
         .error_log("Error: @config_account_info owner assertion")?;
 
     verify_nft_ownership(
@@ -68,8 +72,8 @@ pub fn undelegate_gem(
         nft_account_data_info.clone(),
         system_program_account_info.clone(),
     ]);
-    let mut general_account_data = Box::new(GeneralData::decode(general_account_info)?);
-    let mut nft_account_data = NftData::decode(&nft_account_data_info)
+    let mut general_account_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    let mut nft_account_data = NftData::parse(&nft_account_data_info, program_id)
         .error_log("Error @gem_account_data_info decoding")?;
 
     let interested_epoch = if let Some(tmp) = nft_account_data.last_withdrawal_epoch {
@@ -103,7 +107,7 @@ pub fn undelegate_gem(
         )
         .error_log("Error: @nft_withdraw")?;
     }
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
 
     general_account_data.total_delegated = general_account_data
         .total_delegated

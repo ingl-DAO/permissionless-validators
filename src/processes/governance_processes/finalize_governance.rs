@@ -68,9 +68,9 @@ pub fn finalize_governance(
     let clock_data =
         Clock::from_account_info(sysvar_clock_info).error_log("failed to get clock data")?;
 
-    let mut governance_data = GovernanceData::decode(proposal_account_info)?;
-    let config_data = Box::new(ValidatorConfig::decode(ingl_config_account)?);
-    let mut general_data = Box::new(GeneralData::decode(general_account_info)?);
+    let mut governance_data = GovernanceData::parse(proposal_account_info, program_id)?;
+    let config_data = Box::new(ValidatorConfig::parse(ingl_config_account, program_id)?);
+    let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
 
     if governance_data.is_still_ongoing == false {
         Err(InglError::TooLate.utilize("This proposal is currently Closed"))?

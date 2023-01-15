@@ -112,16 +112,17 @@ async def finalize_rebalancing(keypair, log_level):
     await client.close()
 
 @click.command(name="init")
+@click.option('--validator', '-v', default = get_keypair_path())
 @click.option('--keypair', '-k', default = get_keypair_path())
 @click.option('--log_level', '-l', default = 2, type=int)
-async def ingl(keypair, log_level):
+async def ingl(keypair, validator, log_level):
     init_commission = click.prompt("Enter the Commission to be set for the validator: ", type=int)
     max_primary_stake = click.prompt("Enter the maximum primary stake to be set for the validator: ", type=int)
     nft_holders_share = click.prompt("Enter the NFT Holders Share to be set for the validator: ", type=int)
     initial_redemption_fee = click.prompt("Enter the Initial Redemption Fee to be set for the validator: ", type=int)
     is_validator_switchable = click.prompt("Is the validator switchable? (y/n): ", type=bool)
     unit_backing = click.prompt("Enter the Unit Backing to be set for the validator: ", type=int)
-    redemption_fee = click.prompt("Enter the Redemption Fee to be set for the validator: ", type=int)
+    redemption_fee_duration = click.prompt("Enter the Redemption Fee duration to be set for the validator: ", type=int)
     proposal_quorum = click.prompt("Enter the Proposal Quorum to be set for governance proposals: ", type=int)
     creator_royalty = click.prompt("Enter the Creator Royalty to be set for the validator: ", type=int)
     rarities = [7000, 2900, 100]#TODO: Make this dynamic
@@ -141,7 +142,13 @@ async def ingl(keypair, log_level):
     except Exception as e:
         print("Invalid Keypair Input. ")
         return
-    t_dets = await ingl_init(payer_keypair, init_commission, max_primary_stake, nft_holders_share, initial_redemption_fee, is_validator_switchable, unit_backing, redemption_fee, proposal_quorum, creator_royalty, rarities, rarity_name, twitter_handle, discord_invite, validator_name, collection_uri, website, client, log_level,)
+    try:
+        validator_key = parse_pubkey_input(validator)
+    except Exception as e:
+        print("Invalid Validator Input. ")
+        return
+        
+    t_dets = await ingl_init(payer_keypair, validator_key, init_commission, max_primary_stake, nft_holders_share, initial_redemption_fee, is_validator_switchable, unit_backing, redemption_fee_duration, proposal_quorum, creator_royalty, rarities, rarity_name, twitter_handle, discord_invite, validator_name, collection_uri, website, client, log_level,)
     print(t_dets)
     await client.close()
 
@@ -250,7 +257,7 @@ async def process_create_governance(keypair, mint_id, log_level):
         return
     if numeration == 0:
         value = click.prompt("Enter the new validator name: ", type=str)
-        t_dets = await init_governance(payer_keypair, mint_pubkey, client, config_account_type = ConfigAccountType.enum.ValidatorName(value), log_level = log_level)
+        t_dets = await init_governance(payer_keypair, mint_pubkey, client, config_account_type = ConfigAccountType.enum.ValidatorName(value = value), log_level = log_level)
     elif numeration == 1:
         try:
             buffer_address = parse_pubkey_input(click.prompt("Enter the buffer address: ", type=str)).public_key
@@ -266,10 +273,10 @@ async def process_create_governance(keypair, mint_id, log_level):
 @click.command(name='vote_governance')
 @click.argument('mint')
 @click.argument('numeration', type=int)
-@click.option('vote', default='D')
+@click.option('--vote', '-v', default='D')
 @click.option('--keypair', '-k', default = get_keypair_path())
 @click.option('--log_level', '-l', default = 2, type=int)
-async def process_vote_governance(keypair, mint, numeration, log_level):
+async def process_vote_governance(keypair, mint, numeration, vote, log_level):
     client = AsyncClient(rpc_url.target_network)
     client_state = await client.is_connected()
     print("Client is connected" if client_state else "Client is Disconnected")

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use crate::{
     colored_log,
     error::InglError,
-    utils::{assert_program_owned, AccountInfoHelpers, ResultExt},
+    utils::{AccountInfoHelpers, ResultExt},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use ingl_macros::Validate;
@@ -200,16 +200,14 @@ impl ValidatorConfig {
             .error_log("Error @ Config Data Validation")?;
         Ok(i)
     }
-    pub fn get_redeem_fee(
-        &self,
-        age: u32,
-    ) -> u64 {
+    pub fn get_redeem_fee(&self, age: u32) -> u64 {
         if age > self.redemption_fee_duration {
             return 0;
         }
-    
+
         ((((self.initial_redemption_fee as u64).pow(2)
-            * ((self.redemption_fee_duration as u64).pow(2) - (age as u64).pow(2))) as f64)
+            * ((self.redemption_fee_duration as u64).pow(2) - (age as u64).pow(2)))
+            as f64)
             .sqrt() as u64)
             .checked_div(self.redemption_fee_duration as u64)
             .unwrap()
@@ -382,9 +380,9 @@ pub struct GeneralData {
 }
 impl GeneralData {
     pub fn get_space(&self) -> usize {
-        // 4 + 4 + 8 + 8 + 4 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len() + 4)
-        // 4 + 4 + 8 + 8 + 4 + 8 + 8 + 1 + 4 + 4 + 4 + 4 = 60
-        61 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len())
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len() + 4)
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + 4 = 65
+        65 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len())
     }
 }
 

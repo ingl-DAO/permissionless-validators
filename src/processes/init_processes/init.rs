@@ -348,11 +348,11 @@ fn mint_collection(
             *mint_authority_account_info.key,
             validator_name.clone(),
             format!(
-                "{}_Unit",
+                "{}_U",
                 validator_name
                     .get(
-                        0..(if validator_name.len() > 5 {
-                            5
+                        0..(if validator_name.len() > 8 {
+                            8
                         } else {
                             validator_name.len()
                         })

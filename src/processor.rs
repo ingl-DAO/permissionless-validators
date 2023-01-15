@@ -110,7 +110,7 @@ pub fn process_instruction(
             vote,
             cnt,
         } => vote_governance(
-            program_id, accounts, numeration, vote,  cnt, log_level, false, false,
+            program_id, accounts, numeration, vote, cnt, log_level, false, false,
         )?,
 
         InstructionEnum::FinalizeGovernance {

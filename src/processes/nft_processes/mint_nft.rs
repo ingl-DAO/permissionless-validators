@@ -123,9 +123,6 @@ pub fn process_mint_nft(
     let (_ingl_config_key, _ingl_config_bump) = ingl_config_account_info
         .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
         .error_log("Error @ ingl_config_account_info pda assertion")?;
-    ingl_collection_account_info
-        .assert_owner(program_id)
-        .error_log("Error @ ingl_collection_account_info ownership assertion")?;
 
     let (_uris_account_key, _uris_account_bump) = uris_account_info
         .assert_seed(program_id, &[URIS_ACCOUNT_SEED.as_ref()])
@@ -141,9 +138,12 @@ pub fn process_mint_nft(
         .assert_owner(program_id)
         .error_log("Error @ general_account_info ownership assertion")?;
 
-    let config_data = Box::new(ValidatorConfig::decode(&ingl_config_account_info)?);
-    let uris_data = Box::new(UrisAccount::decode(&uris_account_info)?);
-    let mut general_data = Box::new(GeneralData::decode(&general_account_info)?);
+    let config_data = Box::new(ValidatorConfig::parse(
+        &ingl_config_account_info,
+        program_id,
+    )?);
+    let uris_data = Box::new(UrisAccount::parse(&uris_account_info, program_id)?);
+    let mut general_data = Box::new(GeneralData::parse(&general_account_info, program_id)?);
 
     let (vote_account_key, _va_bump) =
         Pubkey::find_program_address(&[VOTE_ACCOUNT_KEY.as_ref()], program_id);
@@ -227,7 +227,7 @@ pub fn process_mint_nft(
 
     general_data.mint_numeration += 1;
     general_data.total_delegated += mint_cost;
-    if general_data.total_delegated > config_data.max_primary_stake{
+    if general_data.total_delegated > config_data.max_primary_stake {
         Err(InglError::TooLate.utilize("Max primary stake reached"))?
     }
 

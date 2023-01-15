@@ -8,12 +8,12 @@ InitStruct = CStruct(
     "log_level" / U8,
     "init_commission" / U8,
     "max_primary_stake" / U64,
-    "nft_holder_share" / U8,
+    "nft_holders_share" / U8,
     "initial_redemption_fee" / U8,
     "is_validator_id_switchable" / Bool,
     "unit_backing" / U64,
     "redemption_fee_duration" / U32,
-    "program_upgrade_threshold" / U8,
+    "proposal_quorum" / U8,
     "creator_royalties" / U16,
     "rarities" / Vec(U16),
     "rarity_names" / Vec(String),
@@ -24,9 +24,9 @@ InitStruct = CStruct(
     "website" / String,
 )
 
-
 InstructionEnum = Enum(
-    "MintNft" / CStruct("log_level"/U8),
+    "MintNft" / CStruct("switchboard_state_bump"/U8, "permission_bump"/U8, "log_level"/U8),
+    "ImprintRarity" / CStruct("log_level" / U8),
     "Init" / InitStruct,
     "Redeem" / CStruct("log_level"/U8),
     "NFTWithdraw" / CStruct("cnt" / U32, "log_level"/U8),
@@ -50,21 +50,26 @@ GovernanceType = Enum(
     "ConfigAccount",
     "ProgramUpgrade" / CStruct("buffer_account" / U8[32], "code_link" / String),
     "VoteAccountGovernance",
+
+    enum_name = "GovernanceType",
 )
 
 ConfigAccountType = Enum(
-    "MaxPrimaryStake" / U64,
-    "NftHolderShare" / U8,
-    "InitialRedemptionFee" / U8,
-    "RedemptionFeeDuration" / U32,
-    "ValidatorName" / String,
-    "TwitterHandle" / String,
-    "DiscordInvite" / String,
+    "MaxPrimaryStake" / CStruct("value" / U64),
+    "NftHolderShare" / CStruct("value" / U8),
+    "InitialRedemptionFee" / CStruct("value" / U8),
+    "RedemptionFeeDuration" / CStruct("value" / U32),
+    "ValidatorName" / CStruct("value" / String),
+    "TwitterHandle" / CStruct("value" / String),
+    "DiscordInvite" / CStruct("value" / String),
+
+    enum_name = "ConfigAccountType",
 )
 
 VoteAccountGovernance = Enum(
-    "ValidatorId" / U8[32],
-    "Commission" / U8,
+    "ValidatorId" / CStruct("value" / U8[32]),
+    "Commission" / CStruct("value" / U8),
+    enum_name = "VoteAccountGovernance",
 )
 
 def build_governance_type(governance_type: GovernanceType.enum, config_account_type:Optional[ConfigAccountType.enum] = None, vote_account_governance: Optional[VoteAccountGovernance.enum] = None):

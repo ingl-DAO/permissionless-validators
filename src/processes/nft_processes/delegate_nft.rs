@@ -53,10 +53,10 @@ pub fn delegate_gem(
         .error_log("Error: @config_account_info owner assertion")?;
 
     let mut nft_account_data =
-        NftData::decode(&nft_account_data_info).error_log("Error @ Gem Account Data Validation")?;
+        NftData::parse(&nft_account_data_info, program_id).error_log("Error @ Gem Account Data Validation")?;
 
-    let mut general_account_data = Box::new(GeneralData::decode(general_account_info)?);
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
+    let mut general_account_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
 
     general_account_data.total_delegated = general_account_data
         .total_delegated

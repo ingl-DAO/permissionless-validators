@@ -123,10 +123,10 @@ pub fn redeem_nft(
             .assert_seed(&mpl_token_metadata_id, metadata_seeds)
             .error_log("@assert ingl nft collection metadata")?;
 
-    let nft_data = NftData::decode(&nft_account_data_info)
+    let nft_data = NftData::parse(&nft_account_data_info, program_id)
         .error_log("@nft_account_info decode_unchecked validation")?;
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
-    let general_data = Box::new(GeneralData::decode(general_account_info)?);
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
+    let general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
 
     match nft_data.funds_location {
         FundsLocation::Undelegated => {}

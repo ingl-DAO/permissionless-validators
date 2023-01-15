@@ -53,7 +53,7 @@ pub fn nft_withdraw(
     general_account_info
         .assert_owner(program_id)
         .error_log("Error: general_account_info must be owned by the program")?;
-    let general_data = Box::new(GeneralData::decode(general_account_info)?);
+    let general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
 
     let (_authorized_withdrawer, authorized_withdrawer_bump) = authorized_withdrawer_info
         .assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])
@@ -80,7 +80,7 @@ pub fn nft_withdraw(
         )
         .error_log("Error @ nft ownership verification")?;
 
-        let mut ingl_nft_data = NftData::decode(nft_account_data_info)
+        let mut ingl_nft_data = NftData::parse(nft_account_data_info, program_id)
             .error_log("Error: @nft_account_data_info deserialization")?;
 
         if let FundsLocation::Delegated = ingl_nft_data.funds_location {

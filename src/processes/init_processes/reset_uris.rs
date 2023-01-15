@@ -37,11 +37,11 @@ pub fn reset_uris(program_id: &Pubkey, accounts: &[AccountInfo], log_level: u8) 
         .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
         .error_log("Error: Config account is not the config account")?;
 
-    let config = Box::new(ValidatorConfig::decode(config_account_info)?);
+    let config = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
     payer_account_info
         .assert_key_match(&config.validator_id)
         .error_log("Error: Payer account is not the validator_id")?;
-    let mut uris_account_data = Box::new(UrisAccount::decode(uris_account_info)?);
+    let mut uris_account_data = Box::new(UrisAccount::parse(uris_account_info, program_id)?);
     uris_account_data.uris = Vec::new();
     let space = 16;
     let lamports = Rent::get()?.minimum_balance(uris_account_info.data_len())

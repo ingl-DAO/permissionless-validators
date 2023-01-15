@@ -11,7 +11,7 @@ from solana.rpc.async_api import AsyncClient
 from solana.rpc.api import Client
 from rich import print
 
-async def ingl_init(payer_keypair: KeypairInput, init_commission: int, max_primary_stake: int, nft_holders_share: int, initial_redemption_fee: int, is_validator_id_switchable: bool, unit_backing: int, redemption_fee_duration: int, proposal_quorum: int, creator_royalties: int, rarities: List[int], rarity_names: List[str], twitter_handle: str, discord_invite: str, validator_name: str, collection_uri: str, website: str, client: AsyncClient, log_level: int = 0) -> str:
+async def ingl_init(payer_keypair: KeypairInput, validator_pubkey: PubkeyInput, init_commission: int, max_primary_stake: int, nft_holders_share: int, initial_redemption_fee: int, is_validator_id_switchable: bool, unit_backing: int, redemption_fee_duration: int, proposal_quorum: int, creator_royalties: int, rarities: List[int], rarity_names: List[str], twitter_handle: str, discord_invite: str, validator_name: str, collection_uri: str, website: str, client: AsyncClient, log_level: int = 0) -> str:
     mint_pubkey, _mint_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_NFT_COLLECTION_KEY, 'UTF-8')], get_program_id())
     mint_authority_pubkey, _mint_authority_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_MINT_AUTHORITY_KEY, 'UTF-8')], get_program_id())
     collection_holder_pubkey, _collection_holder_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.COLLECTION_HOLDER_KEY, 'UTF-8')], get_program_id())
@@ -19,8 +19,9 @@ async def ingl_init(payer_keypair: KeypairInput, init_commission: int, max_prima
     metaplex_program_id = PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
     metadata_pda, _metadata_pda_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(mint_pubkey)], metaplex_program_id)
     master_edition_pda, _master_edition_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(mint_pubkey), b"edition"], metaplex_program_id)
-    global_gem_pubkey, _global_gem_bump = PublicKey.find_program_address([bytes(ingl_constants.GLOBAL_GEM_KEY, 'UTF-8')], get_program_id())
-    ingl_config_pubkey, _ingl_config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_ACCOUNT_KEY, 'UTF-8')], get_program_id())
+    ingl_config_pubkey, _ingl_config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
+    general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
+    uris_account_pubkey, _uris_account_bump = PublicKey.find_program_address([bytes(ingl_constants.URIS_ACCOUNT_SEED, 'UTF-8')], get_program_id())
 
 
     payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
@@ -34,23 +35,27 @@ async def ingl_init(payer_keypair: KeypairInput, init_commission: int, max_prima
     token_metadata_meta = AccountMeta(metadata_pda, False, True)
     metadata_program_id = AccountMeta(metaplex_program_id, False, False)
     associated_program_meta = AccountMeta(spl_constants.ASSOCIATED_TOKEN_PROGRAM_ID, False, False)
-    global_gem_meta = AccountMeta(global_gem_pubkey, False, True)
     edition_meta = AccountMeta(master_edition_pda, False, True)
     ingl_config_meta = AccountMeta(ingl_config_pubkey, False, True)
+    general_account_meta = AccountMeta(general_account_pubkey, False, True)
+    uris_account_meta = AccountMeta(uris_account_pubkey, False, True)
+    validator_account_meta = AccountMeta(validator_pubkey.public_key, False, True)
 
     accounts = [
         payer_account_meta, 
+        ingl_config_meta,
+        general_account_meta,
+        uris_account_meta,
+        sysvar_rent_account_meta,
+        validator_account_meta,
         collection_holder_meta,
         mint_account_meta,
         mint_authority_meta,
         mint_associated_meta, 
         token_metadata_meta, 
-        global_gem_meta,
         edition_meta,
         spl_program_meta,
-        sysvar_rent_account_meta, 
         system_program_meta,
-        ingl_config_meta,
 
         system_program_meta, 
         spl_program_meta,
@@ -85,7 +90,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, clie
     collection_master_edition_pda, _master_edition_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(collection_mint_pubkey), b"edition"], metaplex_program_id)
     mint_edition_pda, _mint_edition_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(mint_keypair.public_key), b"edition"], metaplex_program_id)
     collection_account_pda, _collection_account_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(collection_mint_pubkey)], metaplex_program_id)
-    gem_account_pubkey, _gem_account_bump = PublicKey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
+    nft_account_pubkey, _nft_account_bump = PublicKey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
     ingl_config_pubkey, _ingl_config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
     uri_account_pubkey, _uri_account_bump = PublicKey.find_program_address([bytes(ingl_constants.URIS_ACCOUNT_SEED, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
     general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
@@ -101,7 +106,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, clie
     token_metadata_meta = AccountMeta(metadata_pda, False, True)
     metadata_program_id = AccountMeta(metaplex_program_id, False, False)
     associated_program_meta = AccountMeta(spl_constants.ASSOCIATED_TOKEN_PROGRAM_ID, False, False)
-    gem_account_meta = AccountMeta(gem_account_pubkey, False, True)
+    nft_account_meta = AccountMeta(nft_account_pubkey, False, True)
     collection_master_edition_meta = AccountMeta(collection_master_edition_pda, False, True)
     mint_edition_meta = AccountMeta(mint_edition_pda, False, True)
     collection_mint_meta = AccountMeta(collection_mint_pubkey, False, True)
@@ -121,7 +126,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, clie
         system_program_meta,
         token_metadata_meta,
         pd_pool_meta,
-        gem_account_meta,
+        nft_account_meta,
         collection_master_edition_meta,
         mint_edition_meta,
         collection_mint_meta,
@@ -142,7 +147,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, clie
         metadata_program_id,
     ]
 
-    instruction_data = build_instruction(InstructionEnum.enum.MintNft(), log_level = log_level)
+    instruction_data = build_instruction(InstructionEnum.enum.MintNft(switchboard_state_bump = 0, permission_bump = 0, log_level = log_level))
     transaction = Transaction()
     transaction.add(ComputeBudgetInstruction().set_compute_unit_limit(400_000, payer_keypair.public_key))
     transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
