@@ -200,6 +200,24 @@ impl ValidatorConfig {
             .error_log("Error @ Config Data Validation")?;
         Ok(i)
     }
+    pub fn get_redeem_fee(
+        &self,
+        age: u32,
+    ) -> u64 {
+        if age > self.redemption_fee_duration {
+            return 0;
+        }
+    
+        ((((self.initial_redemption_fee as u64).pow(2)
+            * ((self.redemption_fee_duration as u64).pow(2) - (age as u64).pow(2))) as f64)
+            .sqrt() as u64)
+            .checked_div(self.redemption_fee_duration as u64)
+            .unwrap()
+            .checked_mul(self.unit_backing)
+            .unwrap()
+            .checked_div(100)
+            .unwrap()
+    }
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
