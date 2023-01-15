@@ -13,22 +13,22 @@ import os
 
 
 class Constants:
-    INGL_CONFIG_SEED = b"ingl_config";
-    URIS_ACCOUNT_SEED = b"uris_account";
-    GENERAL_ACCOUNT_SEED = b"general_account";
-    INGL_NFT_COLLECTION_KEY = b"ingl_nft_collection";
-    INGL_MINT_AUTHORITY_KEY = b"ingl_mint_authority";
-    COLLECTION_HOLDER_KEY = b"collection_holder";
-    VOTE_ACCOUNT_KEY = b"vote_account";
-    AUTHORIZED_WITHDRAWER_KEY = b"authorized_withdrawer";
-    STAKE_ACCOUNT_KEY = b"stake_account";
-    PD_POOL_ACCOUNT_KEY = b"pd_pool_account";
-    NFT_ACCOUNT_CONST = b"nft_account";
-    INGL_PROGRAM_AUTHORITY_KEY = b"ingl_program_authority";
-    INGL_PROPOSAL_KEY = b"ingl_proposal";
-    VALIDATOR_ID_SEED = b"validator_ID___________________";
-    T_STAKE_ACCOUNT_KEY = b"t_stake_account_key";
-    T_WITHDRAW_KEY = b"t_withdraw_key";
+    INGL_CONFIG_SEED = "ingl_config";
+    URIS_ACCOUNT_SEED = "uris_account";
+    GENERAL_ACCOUNT_SEED = "general_account";
+    INGL_NFT_COLLECTION_KEY = "ingl_nft_collection";
+    INGL_MINT_AUTHORITY_KEY = "ingl_mint_authority";
+    COLLECTION_HOLDER_KEY = "collection_holder";
+    VOTE_ACCOUNT_KEY = "vote_account";
+    AUTHORIZED_WITHDRAWER_KEY = "authorized_withdrawer";
+    STAKE_ACCOUNT_KEY = "stake_account";
+    PD_POOL_ACCOUNT_KEY = "pd_pool_account";
+    NFT_ACCOUNT_CONST = "nft_account";
+    INGL_PROGRAM_AUTHORITY_KEY = "ingl_program_authority";
+    INGL_PROPOSAL_KEY = "ingl_proposal";
+    VALIDATOR_ID_SEED = "validator_ID___________________";
+    T_STAKE_ACCOUNT_KEY = "t_stake_account_key";
+    T_WITHDRAW_KEY = "t_withdraw_key";
 
     TEAM_ACCOUNT_KEY = PublicKey("Team111111111111111111111111111111111111111")
     STAKE_PROGRAM_ID = PublicKey("Stake11111111111111111111111111111111111111")
@@ -36,40 +36,6 @@ class Constants:
     VOTE_PROGRAM_ID = PublicKey("Vote111111111111111111111111111111111111111")
     BPF_LOADER_UPGRADEABLE = PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
 
-ClassEnum = Enum(
-    "Ruby",
-    "Diamond",
-    "Sapphire",
-    "Emerald",
-    "Serendibite",
-    "Benitoite",
-
-    enum_name = "ClassEnum",
-)
-
-Rarity = Enum(
-    "Common",
-    "Uncommon",
-    "Rare",
-    "Exalted",
-    "Mythic",
-
-    enum_name = "Rarity",
-)
-
-def int_from_class_enum(class_enum: ClassEnum.enum) -> int:
-    if class_enum == ClassEnum.enum.Ruby():
-        return 0
-    elif class_enum == ClassEnum.enum.Diamond():
-        return 1
-    elif class_enum == ClassEnum.enum.Sapphire():
-        return 2
-    elif class_enum == ClassEnum.enum.Emerald():
-        return 3
-    elif class_enum == ClassEnum.enum.Serendibite():
-        return 4
-    elif class_enum == ClassEnum.enum.Benitoite():
-        return 5
 
 def keypair_from_json(filepath):
     keypair = Keypair.from_secret_key(json.load(open(filepath)))

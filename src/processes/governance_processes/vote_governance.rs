@@ -41,11 +41,11 @@ pub fn vote_governance(
         )
         .error_log("failed to assert pda input for proposal_account_info")?;
 
-    let mut governance_data = GovernanceData::decode(proposal_account_info)?;
-    
+    let mut governance_data = GovernanceData::parse(proposal_account_info, program_id)?;
+
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
     let rent_data = get_rent_data(account_info_iter, rent_is_from_account)?;
-    
+
     log!(log_level, 0, "about to check if proposal is ongoing");
     if governance_data.is_still_ongoing == false {
         Err(InglError::TooLate.utilize("This proposal is currently Closed"))?
@@ -56,11 +56,10 @@ pub fn vote_governance(
     }
     let mut incremented_space = 0;
 
-    for _ in 0..cnt{
+    for _ in 0..cnt {
         let nft_account_data_info = next_account_info(account_info_iter)?;
         let mint_account_info = next_account_info(account_info_iter)?;
         let associated_token_account_info = next_account_info(account_info_iter)?;
-
 
         verify_nft_ownership(
             payer_account_info,
@@ -69,9 +68,9 @@ pub fn vote_governance(
             associated_token_account_info,
             program_id,
         )?;
-        
-        let mut nft_data = Box::new(NftData::decode(nft_account_data_info)?);
-        
+
+        let mut nft_data = Box::new(NftData::parse(nft_account_data_info, program_id)?);
+
         log!(log_level, 0, "about to insert vote");
         governance_data.votes.insert(numeration, vote);
         nft_data.all_votes.insert(numeration, vote);
@@ -83,17 +82,23 @@ pub fn vote_governance(
             .unwrap();
 
         invoke(
-            &system_instruction::transfer(payer_account_info.key, nft_account_data_info.key, lamports),
+            &system_instruction::transfer(
+                payer_account_info.key,
+                nft_account_data_info.key,
+                lamports,
+            ),
             &[payer_account_info.clone(), nft_account_data_info.clone()],
         )
         .error_log(
             "failed to transfer for reallaocating_nft_account_data_size @system_program invoke",
         )?;
-        nft_account_data_info.realloc(new_space, false).error_log("failed to realloc nft account data account size")?;
-        
+        nft_account_data_info
+            .realloc(new_space, false)
+            .error_log("failed to realloc nft account data account size")?;
+
         nft_data
-        .serialize(&mut &mut nft_account_data_info.data.borrow_mut()[..])
-        .error_log("failed to serialize into nft_account_info")?;
+            .serialize(&mut &mut nft_account_data_info.data.borrow_mut()[..])
+            .error_log("failed to serialize into nft_account_info")?;
     }
 
     let new_space = proposal_account_info.data.borrow().len() + incremented_space;

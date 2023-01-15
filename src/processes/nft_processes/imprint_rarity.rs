@@ -174,7 +174,7 @@ pub fn process_imprint_rarity(
         Err(ProgramError::InvalidAccountData).error_log("Unchanged VRF result buffer")?
     }
 
-    let uris_data = Box::new(UrisAccount::decode(&uris_account_info)?);
+    let uris_data = Box::new(UrisAccount::parse(&uris_account_info, program_id)?);
     let random_value = get_vrf_value(result_buffer, vrf_state_account_data.max_result, log_level);
     let seed = if clock_is_from_account {
         1

@@ -112,16 +112,17 @@ async def finalize_rebalancing(keypair, log_level):
     await client.close()
 
 @click.command(name="init")
+@click.option('--validator', '-v', default = get_keypair_path())
 @click.option('--keypair', '-k', default = get_keypair_path())
 @click.option('--log_level', '-l', default = 2, type=int)
-async def ingl(keypair, log_level):
+async def ingl(keypair, validator, log_level):
     init_commission = click.prompt("Enter the Commission to be set for the validator: ", type=int)
     max_primary_stake = click.prompt("Enter the maximum primary stake to be set for the validator: ", type=int)
     nft_holders_share = click.prompt("Enter the NFT Holders Share to be set for the validator: ", type=int)
     initial_redemption_fee = click.prompt("Enter the Initial Redemption Fee to be set for the validator: ", type=int)
     is_validator_switchable = click.prompt("Is the validator switchable? (y/n): ", type=bool)
     unit_backing = click.prompt("Enter the Unit Backing to be set for the validator: ", type=int)
-    redemption_fee = click.prompt("Enter the Redemption Fee to be set for the validator: ", type=int)
+    redemption_fee_duration = click.prompt("Enter the Redemption Fee duration to be set for the validator: ", type=int)
     proposal_quorum = click.prompt("Enter the Proposal Quorum to be set for governance proposals: ", type=int)
     creator_royalty = click.prompt("Enter the Creator Royalty to be set for the validator: ", type=int)
     rarities = [7000, 2900, 100]#TODO: Make this dynamic
@@ -141,7 +142,13 @@ async def ingl(keypair, log_level):
     except Exception as e:
         print("Invalid Keypair Input. ")
         return
-    t_dets = await ingl_init(payer_keypair, init_commission, max_primary_stake, nft_holders_share, initial_redemption_fee, is_validator_switchable, unit_backing, redemption_fee, proposal_quorum, creator_royalty, rarities, rarity_name, twitter_handle, discord_invite, validator_name, collection_uri, website, client, log_level,)
+    try:
+        validator_key = parse_pubkey_input(validator)
+    except Exception as e:
+        print("Invalid Validator Input. ")
+        return
+        
+    t_dets = await ingl_init(payer_keypair, validator_key, init_commission, max_primary_stake, nft_holders_share, initial_redemption_fee, is_validator_switchable, unit_backing, redemption_fee_duration, proposal_quorum, creator_royalty, rarities, rarity_name, twitter_handle, discord_invite, validator_name, collection_uri, website, client, log_level,)
     print(t_dets)
     await client.close()
 
@@ -180,7 +187,6 @@ async def process_create_vote_account(val_keypair, log_level):
 
 @click.command(name='delegate_gem')
 @click.argument('mint_id')
-@click.argument('vote_account')
 @click.option('--keypair', '-k', default = get_keypair_path())
 @click.option('--log_level', '-l', default = 2, type=int)
 async def process_delegate_gem(keypair, mint_id, vote_account, log_level):
@@ -197,12 +203,7 @@ async def process_delegate_gem(keypair, mint_id, vote_account, log_level):
     except Exception as e:
         print("Invalid Public Key provided.")
         return
-    try:
-        vote_account_pubkey = parse_pubkey_input(vote_account)
-    except Exception as e:
-        print("Invalid Public Key provided.")
-        return
-    t_dets = await delegate_nft(payer_keypair, mint_pubkey, vote_account_pubkey, client, log_level)
+    t_dets = await delegate_nft(payer_keypair, mint_pubkey, client, log_level)
     print(t_dets)
     await client.close()
 
@@ -224,13 +225,7 @@ async def process_undelegate_gem(keypair, mint_id, log_level):
     except Exception as e:
         print("Invalid Public Key provided.")
         return
-    gem_account_pubkey, _gem_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GEM_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey.public_key)], get_program_id())
-    gem_account = await client.get_account_info(gem_account_pubkey)
-    gem_account_data = gem_account.value.data
-    funds_location_data = gem_account_data[20:52]
-    funds_location_pubkey = PubkeyInput(pubkey = PublicKey(funds_location_data))
-    # print(funds_location_pubkey)
-    t_dets = await undelegate_nft(payer_keypair, mint_pubkey, funds_location_pubkey, client, log_level)
+    t_dets = await undelegate_nft(payer_keypair, mint_pubkey, client, log_level)
     print(t_dets)
     await client.close()
 
@@ -238,7 +233,7 @@ async def process_undelegate_gem(keypair, mint_id, log_level):
 @click.argument('mint_id')
 @click.option('--keypair', '-k', default = get_keypair_path())
 @click.option('--log_level', '-l', default = 2, type=int)
-async def process_create_upgrade_proposal(keypair, mint_id, log_level):
+async def process_create_governance(keypair, mint_id, log_level):
     client = AsyncClient(rpc_url.target_network)
     client_state = await client.is_connected()
     print("Client is connected" if client_state else "Client is Disconnected")
@@ -262,7 +257,7 @@ async def process_create_upgrade_proposal(keypair, mint_id, log_level):
         return
     if numeration == 0:
         value = click.prompt("Enter the new validator name: ", type=str)
-        t_dets = await init_governance(payer_keypair, mint_pubkey, client, config_account_type = ConfigAccountType.enum.ValidatorName(value), log_level = log_level)
+        t_dets = await init_governance(payer_keypair, mint_pubkey, client, config_account_type = ConfigAccountType.enum.ValidatorName(value = value), log_level = log_level)
     elif numeration == 1:
         try:
             buffer_address = parse_pubkey_input(click.prompt("Enter the buffer address: ", type=str)).public_key
@@ -275,13 +270,13 @@ async def process_create_upgrade_proposal(keypair, mint_id, log_level):
     print(t_dets)
     await client.close()
 
-@click.command(name='vote_upgrade_proposal')
-@click.argument('vote')
-@click.argument('proposal')
-@click.argument('vote_account')
+@click.command(name='vote_governance')
+@click.argument('mint')
+@click.argument('numeration', type=int)
+@click.option('--vote', '-v', default='D')
 @click.option('--keypair', '-k', default = get_keypair_path())
 @click.option('--log_level', '-l', default = 2, type=int)
-async def process_vote_upgrade_proposal(keypair, vote, proposal, vote_account, log_level):
+async def process_vote_governance(keypair, mint, numeration, vote, log_level):
     client = AsyncClient(rpc_url.target_network)
     client_state = await client.is_connected()
     print("Client is connected" if client_state else "Client is Disconnected")
@@ -290,19 +285,22 @@ async def process_vote_upgrade_proposal(keypair, vote, proposal, vote_account, l
     except Exception as e:
         print("Invalid Keypair Input. ")
         return
+    
+    try:
+        mint_pubkey = parse_pubkey_input(mint)
+    except Exception as e:
+        print("Invalid Public Key provided for mint.")
+        return
     vote = parse_vote(vote)
-    upgrade_proposal_pubkey, upgrade_proposal_numeration = parse_proposal(proposal)
-    vote_account_key, vote_account_numeration = parse_proposal(vote_account)
-    print(f"Vote_account: {vote_account_key}, Proposal_Account {upgrade_proposal_pubkey}, Vote: {'Approve' if vote else 'Dissaprove'} ");
-    t_dets = await vote_governance(payer_keypair, vote, upgrade_proposal_pubkey, upgrade_proposal_numeration, vote_account_key, vote_account_numeration, client, log_level)
+    t_dets = await vote_governance(payer_keypair, vote, numeration, [mint_pubkey.public_key], client, log_level)
     print(t_dets)
     await client.close()
 
-@click.command(name='finalize_upgrade_proposal')
-@click.argument('proposal')
+@click.command(name='finalize_governance')
+@click.argument('numeration', type=int)
 @click.option('--keypair', '-k', default = get_keypair_path())
 @click.option('--log_level', '-l', default = 2, type=int)
-async def process_finalize_upgrade_proposal(keypair, proposal, log_level):
+async def process_finalize_governance(keypair, numeration, log_level):
     client = AsyncClient(rpc_url.target_network)
     client_state = await client.is_connected()
     print("Client is connected" if client_state else "Client is Disconnected")
@@ -311,9 +309,26 @@ async def process_finalize_upgrade_proposal(keypair, proposal, log_level):
     except Exception as e:
         print("Invalid Keypair Input. ")
         return
-    upgrade_proposal_pubkey, upgrade_proposal_numeration = parse_proposal(proposal)
-    print(f"Proposal_Account {upgrade_proposal_pubkey}");
-    t_dets = await finalize_governance(payer_keypair, upgrade_proposal_pubkey, upgrade_proposal_numeration, client, log_level)
+
+    t_dets = await finalize_governance(payer_keypair, numeration, client, log_level)
+    print(t_dets)
+    await client.close()    
+
+@click.command(name='execute_governance')
+@click.argument('numeration', type=int)
+@click.option('--keypair', '-k', default = get_keypair_path())
+@click.option('--log_level', '-l', default = 2, type=int)
+async def process_execute_governance(keypair, numeration, log_level):
+    client = AsyncClient(rpc_url.target_network)
+    client_state = await client.is_connected()
+    print("Client is connected" if client_state else "Client is Disconnected")
+    try:
+        payer_keypair = parse_keypair_input(keypair)
+    except Exception as e:
+        print("Invalid Keypair Input. ")
+        return
+
+    t_dets = await execute_governance(payer_keypair, numeration, client, log_level)
     print(t_dets)
     await client.close()    
 
@@ -324,9 +339,10 @@ entry.add_command(ingl)
 entry.add_command(process_create_vote_account)
 entry.add_command(process_delegate_gem)
 entry.add_command(process_undelegate_gem)
-entry.add_command(process_create_upgrade_proposal)
-entry.add_command(process_vote_upgrade_proposal)
-entry.add_command(process_finalize_upgrade_proposal)
+entry.add_command(process_create_governance)
+entry.add_command(process_vote_governance)
+entry.add_command(process_finalize_governance)
+entry.add_command(process_execute_governance)
 entry.add_command(config)
 if __name__ == '__main__':
     entry()

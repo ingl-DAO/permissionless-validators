@@ -68,7 +68,7 @@ pub fn create_governance(
         .assert_owner(program_id)
         .error_log("failed at config account owner assertion")?;
 
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
 
@@ -120,7 +120,7 @@ pub fn create_governance(
         _ => (),
     }
 
-    let mut general_account_data = Box::new(GeneralData::decode(general_account_info)?);
+    let mut general_account_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
     let (_proposal_id, proposal_bump) = proposal_account_info
         .assert_seed(
             program_id,

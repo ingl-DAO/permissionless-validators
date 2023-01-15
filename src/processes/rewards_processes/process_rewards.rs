@@ -2,10 +2,8 @@ use crate::{
     error::InglError,
     instruction::vote_withdraw,
     log,
-    state::{constants::*, VoteReward, ValidatorConfig, GeneralData},
-    utils::{
-        get_clock_data, get_rent_data, OptionExt, ResultExt, AccountInfoHelpers,
-    },
+    state::{constants::*, GeneralData, ValidatorConfig, VoteReward},
+    utils::{get_clock_data, get_rent_data, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
 use borsh::BorshSerialize;
@@ -41,37 +39,42 @@ pub fn process_rewards(
 
     log!(log_level, 0, "Done with main accounts collection");
 
-    vote_account_info.assert_owner(&solana_program::vote::program::id())
+    vote_account_info
+        .assert_owner(&solana_program::vote::program::id())
         .error_log("Error @ vote_account ownership assertion")?;
-    vote_account_info.assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
+    vote_account_info
+        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
         .error_log("Error @ vote_account seed assertion")?;
-    
-    config_account_info.assert_owner(program_id)
+
+    config_account_info
+        .assert_owner(program_id)
         .error_log("Error @ config_account ownership assertion")?;
-    general_account_info.assert_owner(program_id)
+    general_account_info
+        .assert_owner(program_id)
         .error_log("Error @ general_account ownership assertion")?;
-    
-    config_account_info.assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
+
+    config_account_info
+        .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
         .error_log("Error @ config_account seed assertion")?;
-    general_account_info.assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
+    general_account_info
+        .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("Error @ general_account seed assertion")?;
-    
-    ingl_team_account_info.assert_key_match(&team::id())
+
+    ingl_team_account_info
+        .assert_key_match(&team::id())
         .error_log("Error @ ingl_team_account key match assertion")?;
 
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
-    let mut general_data = Box::new(GeneralData::decode(general_account_info)?);
-    
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
+    let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+
     let validator_id = config_data.validator_id; // TODO: Stop using config account for validator_id storage, and fetch it directly from the vote account data
-    validator_info.assert_key_match(&validator_id)
+    validator_info
+        .assert_key_match(&validator_id)
         .error_log("failed to assert pubkeys exactitude for validator_info")?;
 
-    let (authorized_withdrawer, authorized_withdrawer_bump) = authorized_withdrawer_info.assert_seed(program_id,
-        &[
-            AUTHORIZED_WITHDRAWER_KEY.as_ref(),
-        ],
-    )
-    .error_log("failed to assert pda input for authorized_withdrawer_info")?;
+    let (authorized_withdrawer, authorized_withdrawer_bump) = authorized_withdrawer_info
+        .assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])
+        .error_log("failed to assert pda input for authorized_withdrawer_info")?;
     let reward_lamports = vote_account_info
         .lamports()
         .checked_sub(rent_data.minimum_balance(vote_account_info.data_len()))
@@ -99,7 +102,6 @@ pub fn process_rewards(
         ],
         &[&[
             AUTHORIZED_WITHDRAWER_KEY.as_ref(),
-            vote_account_info.key.as_ref(),
             &[authorized_withdrawer_bump],
         ]],
     )
@@ -133,7 +135,6 @@ pub fn process_rewards(
         ],
         &[&[
             AUTHORIZED_WITHDRAWER_KEY.as_ref(),
-            vote_account_info.key.as_ref(),
             &[authorized_withdrawer_bump],
         ]],
     )
@@ -152,10 +153,18 @@ pub fn process_rewards(
         "Transferring the funds to the validator's account ..."
     );
 
-    let remaining_reward = reward_lamports.checked_sub(team_share).error_log("Error calculating remaining rewards")?;
-    let r_one_percent = remaining_reward.checked_div(100).error_log("Error calculating r_one_percent")?;
-    let validator_share = r_one_percent.checked_mul((100 - config_data.nft_holders_share).into()).error_log("Error calculating validator_share")?;
-    let nft_holders_share = remaining_reward.checked_sub(validator_share).error_log("Error calculating nft_holders_share")?;
+    let remaining_reward = reward_lamports
+        .checked_sub(team_share)
+        .error_log("Error calculating remaining rewards")?;
+    let r_one_percent = remaining_reward
+        .checked_div(100)
+        .error_log("Error calculating r_one_percent")?;
+    let validator_share = r_one_percent
+        .checked_mul((100 - config_data.nft_holders_share).into())
+        .error_log("Error calculating validator_share")?;
+    let nft_holders_share = remaining_reward
+        .checked_sub(validator_share)
+        .error_log("Error calculating nft_holders_share")?;
     invoke_signed(
         &system_instruction::transfer(
             authorized_withdrawer_info.key,
@@ -165,7 +174,6 @@ pub fn process_rewards(
         &[authorized_withdrawer_info.clone(), validator_info.clone()],
         &[&[
             AUTHORIZED_WITHDRAWER_KEY.as_ref(),
-            vote_account_info.key.as_ref(),
             &[authorized_withdrawer_bump],
         ]],
     )
@@ -183,15 +191,8 @@ pub fn process_rewards(
         .unwrap();
 
     invoke(
-        &system_instruction::transfer(
-            payer_account_info.key,
-            general_account_info.key,
-            lamports,
-        ),
-        &[
-            payer_account_info.clone(),
-            general_account_info.clone(),
-        ],
+        &system_instruction::transfer(payer_account_info.key, general_account_info.key, lamports),
+        &[payer_account_info.clone(), general_account_info.clone()],
     )
     .error_log(
         "failed to transfer for reallaocating ingl vote data account size @system_program invoke",

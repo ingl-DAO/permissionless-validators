@@ -116,16 +116,9 @@ fn impl_validate(ast: &syn::DeriveInput) -> TokenStream {
             ///converts the data in an accountInfo of apporiate type into the inherited struct.
             /// validates the data using the self.validate() method
             /// asserts that the accountInfo is owned by the program
-            pub fn decode(account: &AccountInfo) -> Result<Self, ProgramError> {
-                match assert_program_owned(account){
-                    Ok(_) => {
-                        let a: Self = try_from_slice_unchecked(&account.data.borrow()).error_log(format!("Error while decoding using try_from_slice_unchecked: {:?}.", #name_str).as_str())?;
-                        a.validate().error_log(format!("Error while validating: {:?}.", #name_str).as_str())
-                    },
-                    Err(e) => {
-                        colored_log!(LOG_LEVEL, 5, Red, "Error while decoding: {:?}", #name_str);
-                        Err(e)},
-                }
+            pub fn decode_unchecked(account: &AccountInfo) -> Result<Self, ProgramError> {
+                let a: Self = try_from_slice_unchecked(&account.data.borrow()).error_log(format!("Error while decoding using try_from_slice_unchecked: {:?}.", #name_str).as_str())?;
+                a.validate().error_log(format!("Error while validating: {:?}.", #name_str).as_str())
             }
             ///converts the data in an accountInfo of apporiate type into the inherited struct.
             /// validates the data using the self.validate() method

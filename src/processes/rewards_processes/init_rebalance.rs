@@ -76,8 +76,8 @@ pub fn init_rebalance(
     config_account_info
         .assert_owner(program_id)
         .error_log("Error: @ asserting config_account_info ownership")?;
-    let mut general_data = Box::new(GeneralData::decode(general_account_info)?);
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
+    let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
 
     validator_account_info
         .assert_key_match(&config_data.validator_id)
@@ -137,10 +137,7 @@ pub fn init_rebalance(
                 &[pd_pool_account_info.clone(), t_stake_account_info.clone()],
                 &[
                     &[PD_POOL_ACCOUNT_KEY.as_ref(), &[pd_pool_bump]],
-                    &[
-                        T_STAKE_ACCOUNT_KEY.as_ref(),
-                        &[expected_t_stake_bump],
-                    ],
+                    &[T_STAKE_ACCOUNT_KEY.as_ref(), &[expected_t_stake_bump]],
                 ],
             )
             .error_log("failed to create the t_stake account")?;
@@ -210,10 +207,7 @@ pub fn init_rebalance(
                     std::mem::size_of::<StakeState>() as u64,
                 ),
                 &[t_withdraw_info.clone()],
-                &[&[
-                    T_WITHDRAW_KEY.as_ref(),
-                    &[t_withdraw_bump],
-                ]],
+                &[&[T_WITHDRAW_KEY.as_ref(), &[t_withdraw_bump]]],
             )
             .error_log("failed to allocate account space")?;
             log!(log_level, 2, "Account space allocated!!!");
@@ -222,10 +216,7 @@ pub fn init_rebalance(
             invoke_signed(
                 &system_instruction::assign(t_withdraw_info.key, &stake::program::id()),
                 &[t_withdraw_info.clone()],
-                &[&[
-                    T_WITHDRAW_KEY.as_ref(),
-                    &[t_withdraw_bump],
-                ]],
+                &[&[T_WITHDRAW_KEY.as_ref(), &[t_withdraw_bump]]],
             )
             .error_log("failed to assign t_withdraw account")?;
             log!(log_level, 2, "Account assigned!!!");

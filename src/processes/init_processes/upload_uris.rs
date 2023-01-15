@@ -1,7 +1,8 @@
 use crate::{
+    error::InglError,
     log,
     state::{constants::*, UrisAccount, ValidatorConfig},
-    utils::{AccountInfoHelpers, ResultExt}, error::InglError,
+    utils::{AccountInfoHelpers, ResultExt},
 };
 
 use anchor_lang::prelude::{Rent, SolanaSysvar};
@@ -43,12 +44,12 @@ pub fn upload_uris(
         .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
         .error_log("Error: Config account is not the config account")?;
 
-    let config = Box::new(ValidatorConfig::decode(config_account_info)?);
+    let config = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
     payer_account_info
         .assert_key_match(&config.validator_id)
         .error_log("Error: Payer account is not the validator_id")?;
 
-    let mut uris_account_data = Box::new(UrisAccount::decode(uris_account_info)?);
+    let mut uris_account_data = Box::new(UrisAccount::parse(uris_account_info, program_id)?);
     log!(
         log_level,
         0,
@@ -62,8 +63,10 @@ pub fn upload_uris(
     log!(log_level, 2, "Uploaded URIs for generation !!");
 
     let space = uris_account_info.data_len() + incremented_space;
-    if space > 16000{
-        Err(InglError::UrisAccountTooBig.utilize("Uploaded too many images. Consider Reseting and selecting the best and less images"))?
+    if space > 16000 {
+        Err(InglError::UrisAccountTooBig.utilize(
+            "Uploaded too many images. Consider Reseting and selecting the best and less images",
+        ))?
     }
     let lamports = Rent::get()?.minimum_balance(space)
         - Rent::get()?.minimum_balance(uris_account_info.data_len());

@@ -59,9 +59,9 @@ pub fn process_init(
     // payer_account_info
     //     .assert_signer()
     //     .error_log("Error @ Payer's Signature Assertion")?;
-    payer_account_info
-        .assert_key_match(&initializer::id())
-        .error_log("Error @ Payer's Key Match Assertion")?;
+    // payer_account_info
+    //     .assert_key_match(&initializer::id())
+    //     .error_log("Error @ Payer's Key Match Assertion")?;
     let (config_key, config_bump) = config_account_info
         .assert_seed(program_id, &[INGL_CONFIG_SEED])
         .error_log("Error @ Config Account Seed Assertion")?;
@@ -348,11 +348,11 @@ fn mint_collection(
             *mint_authority_account_info.key,
             validator_name.clone(),
             format!(
-                "{}_Unit",
+                "{}_U",
                 validator_name
                     .get(
-                        0..(if validator_name.len() > 5 {
-                            5
+                        0..(if validator_name.len() > 8 {
+                            8
                         } else {
                             validator_name.len()
                         })
