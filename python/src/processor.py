@@ -155,39 +155,33 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, clie
 
 
 
-async def delegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, expected_vote_pubkey: PubkeyInput, client: AsyncClient, log_level: int = 0) -> str:
-    gem_account_pubkey, _gem_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GEM_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey.public_key)], get_program_id())
-    global_gem_pubkey, _global_gem_bump = PublicKey.find_program_address([bytes(ingl_constants.GLOBAL_GEM_KEY, 'UTF-8')], get_program_id())
+async def delegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, client: AsyncClient, log_level: int = 0) -> str:
+    nft_account_pubkey, _nft_account_bump = PublicKey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey.public_key)], get_program_id())
     mint_associated_account_pubkey = assoc_instructions.get_associated_token_address(payer_keypair.public_key, mint_pubkey.public_key)
-    expected_vote_data_pubkey, _expected_vote_data_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_DATA_ACCOUNT_KEY, 'UTF-8'), bytes(expected_vote_pubkey.public_key)], get_program_id())
+    config_account_pubkey, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
+    general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
+    
 
-    
     payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
-    mint_account_meta = AccountMeta(mint_pubkey.public_key, False, True)
-    gem_account_meta = AccountMeta(gem_account_pubkey, False, True)
-    mint_associated_meta = AccountMeta(mint_associated_account_pubkey, False, True)
-    global_gem_meta = AccountMeta(global_gem_pubkey, False, True)
-    ingl_vote_data_account_meta = AccountMeta(expected_vote_data_pubkey, False, True)
-    
-    vote_account_meta = AccountMeta(expected_vote_pubkey.public_key, False, True)
-    sysvar_clock_meta = AccountMeta(solana.sysvar.SYSVAR_CLOCK_PUBKEY, False, False)
-    stake_config_program_meta = AccountMeta(ingl_constants.STAKE_CONFIG_PROGRAM_ID, False, False)
+    mint_account_meta = AccountMeta(mint_pubkey.public_key, False, False)
+    nft_account_meta = AccountMeta(nft_account_pubkey, False, True)
+    mint_associated_meta = AccountMeta(mint_associated_account_pubkey, False, False)
+    config_account_meta = AccountMeta(pubkey = config_account_pubkey, is_signer = False, is_writable = False)
+    general_account_meta = AccountMeta(pubkey = general_account_pubkey, is_signer = False, is_writable = True)
+
 
 
     accounts = [
         payer_account_meta,
-        vote_account_meta,
-        ingl_vote_data_account_meta,
+        config_account_meta,
         mint_account_meta,
-        gem_account_meta,
+        nft_account_meta,
         mint_associated_meta,
-        global_gem_meta,
-        sysvar_clock_meta,
-        stake_config_program_meta,
+        general_account_meta,
     ]
 
     # print(accounts)
-    instruction_data = build_instruction(InstructionEnum.enum.DelegateNFT(log_level = log_level, ))
+    instruction_data = build_instruction(InstructionEnum.enum.DelegateNFT(log_level = log_level))
     transaction = Transaction()
     transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
     try:
@@ -197,43 +191,38 @@ async def delegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, ex
     except Exception as e:
         return(f"Error: {e}")
 
-async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, expected_vote_pubkey: PubkeyInput, client: AsyncClient, log_level: int = 0) -> str: #TODO: Need to include the 3 new accounts: Authorized_withdrawer, validator_info, and the system program in this instruction, without which instruction will consistently fail
-    pd_pool_pubkey, _pd_pool_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.PD_POOL_KEY, 'UTF-8')], get_program_id())
-    gem_account_pubkey, _gem_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GEM_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey.public_key)], get_program_id())
-    global_gem_pubkey, _global_gem_bump = PublicKey.find_program_address([bytes(ingl_constants.GLOBAL_GEM_KEY, 'UTF-8')], get_program_id())
+async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, client: AsyncClient, log_level: int = 0) -> str:
+    nft_account_pubkey, _nft_account_bump = PublicKey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey.public_key)], get_program_id())
     mint_associated_account_pubkey = assoc_instructions.get_associated_token_address(payer_keypair.public_key, mint_pubkey.public_key)
-    expected_vote_data_pubkey, _expected_vote_data_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_DATA_ACCOUNT_KEY, 'UTF-8'), bytes(expected_vote_pubkey.public_key)], get_program_id())
-    authorized_withdrawer_key, _authorized_withdrawer_bump = PublicKey.find_program_address([bytes(ingl_constants.AUTHORIZED_WITHDRAWER_KEY, 'UTF-8'), bytes(expected_vote_pubkey.public_key) ], get_program_id())
+    authorized_withdrawer_key, _authorized_withdrawer_bump = PublicKey.find_program_address([bytes(ingl_constants.AUTHORIZED_WITHDRAWER_KEY, 'UTF-8') ], get_program_id())
+    config_account_pubkey, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
+    general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
+    expected_vote_pubkey, _expected_vote_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     
 
     payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
-    mint_account_meta = AccountMeta(mint_pubkey.public_key, False, True)
-    gem_account_meta = AccountMeta(gem_account_pubkey, False, True)
-    mint_associated_meta = AccountMeta(mint_associated_account_pubkey, False, True)
-    global_gem_meta = AccountMeta(global_gem_pubkey, False, True)
-    pd_pool_meta = AccountMeta(pd_pool_pubkey, False, True)
-    ingl_vote_data_account_meta = AccountMeta(expected_vote_data_pubkey, False, True)
-    stake_program_meta  = AccountMeta(ingl_constants.STAKE_PROGRAM_ID, False, False)
+    mint_account_meta = AccountMeta(mint_pubkey.public_key, False, False)
+    nft_account_meta = AccountMeta(nft_account_pubkey, False, True)
+    mint_associated_meta = AccountMeta(mint_associated_account_pubkey, False, False)
+    config_account_meta = AccountMeta(pubkey = config_account_pubkey, is_signer = False, is_writable = False)
+    general_account_meta = AccountMeta(pubkey = general_account_pubkey, is_signer = False, is_writable = True)
+
     
-    vote_account_meta = AccountMeta(expected_vote_pubkey.public_key, False, True)
-    authorized_withdrawer_meta = AccountMeta(authorized_withdrawer_key, False, True)
+    vote_account_meta = AccountMeta(expected_vote_pubkey.public_key, False, False)
+    authorized_withdrawer_meta = AccountMeta(authorized_withdrawer_key, False, False)
     system_program_meta = AccountMeta(system_program.SYS_PROGRAM_ID, False, False)
 
 
     accounts = [
         payer_account_meta,
-        pd_pool_meta,
         vote_account_meta,
-        ingl_vote_data_account_meta,
+        config_account_meta,
         mint_account_meta,
-        gem_account_meta,
+        nft_account_meta,
         mint_associated_meta,
-        global_gem_meta,
+        general_account_meta,
         system_program_meta,
         authorized_withdrawer_meta,
-
-        system_program_meta,
-        stake_program_meta,
     ]
 
     # print(accounts)
@@ -592,11 +581,12 @@ async def init_governance(payer_keypair: KeypairInput, mint: PubkeyInput, client
     except Exception as e:
         return(f"Error: {e}")
 
-async def vote_governance(payer_keypair: KeypairInput, vote: Bool, proposal_pubkey: Optional[PubkeyInput], proposal_numeration: int, mints: List[PublicKey], client: AsyncClient, log_level: int = 0) -> str:
+async def vote_governance(payer_keypair: KeypairInput, vote: Bool, proposal_numeration: int, mints: List[PublicKey], client: AsyncClient, log_level: int = 0) -> str:
     proposal_pubkey, _proposal_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_PROPOSAL_KEY, 'UTF-8'), bytes(proposal_numeration)], get_program_id())
-
     
-    payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True) # payer is the validator ID.
+    print(f"Proposal_Account: {proposal_pubkey}, Vote: {'Approve' if vote else 'Dissaprove'} ");
+    
+    payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True)
     proposal_account_meta = AccountMeta(pubkey = proposal_pubkey, is_signer = False, is_writable = True)
     system_program_meta = AccountMeta(pubkey = system_program.SYS_PROGRAM_ID, is_signer = False, is_writable = False)
 
@@ -636,7 +626,9 @@ async def finalize_governance(payer_keypair: KeypairInput, proposal_numeration: 
     config_account_key, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_KEY, 'UTF-8')], get_program_id())
     general_account_key, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_GENERAL_KEY, 'UTF-8')], get_program_id())
 
-    payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True) # payer is the validator ID.
+    print(f"Proposal_Account: {proposal_account_key}");
+
+    payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True) 
     sysvar_rent_account_meta = AccountMeta(pubkey = SYSVAR_RENT_PUBKEY, is_signer = False, is_writable = False)
     sysvar_clock_account_meta = AccountMeta(pubkey = SYSVAR_CLOCK_PUBKEY, is_signer = False, is_writable = False)
     proposal_account_meta = AccountMeta(pubkey = proposal_account_key, is_signer = False, is_writable = True)
@@ -663,13 +655,13 @@ async def finalize_governance(payer_keypair: KeypairInput, proposal_numeration: 
     except Exception as e:
         return(f"Error: {e}")
 
-
-
 async def execute_governance(payer_keypair: KeypairInput, proposal_numeration: int, client: AsyncClient, log_level: int = 0) -> str:
     proposal_account_key, _proposal_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_PROPOSAL_KEY, 'UTF-8'), bytes(proposal_numeration)], get_program_id())
     config_account_key, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_KEY, 'UTF-8')], get_program_id())
     general_account_key, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_GENERAL_KEY, 'UTF-8')], get_program_id())
     
+    print(f"Proposal_Account: {proposal_account_key}");
+
     proposal_data = await client.get_account_info(proposal_account_key)
     proposal_data = proposal_data.value.data
 
