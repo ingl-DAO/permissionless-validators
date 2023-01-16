@@ -83,7 +83,7 @@ pub fn execute_governance(
             .clone()
             .date_finalized
             .error_log("Proposal must be finalized")?
-            + 86400 * 30)
+            + GOVERNANCE_SAFETY_LEEWAY)
     {
         match governance_data.clone().governance_type {
             GovernanceType::ProgramUpgrade { .. } => {

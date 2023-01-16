@@ -31,6 +31,7 @@ pub enum InstructionEnum {
         redemption_fee_duration: u32,
         proposal_quorum: u8,
         creator_royalties: u16,
+        governance_expiration_time: u32,
         rarities: Vec<u16>,
         rarity_names: Vec<String>,
         twitter_handle: String,
@@ -74,6 +75,8 @@ pub enum InstructionEnum {
     },
     InitGovernance {
         governance_type: GovernanceType,
+        title: String,
+        description: String,
         log_level: u8,
     },
     VoteGovernance {

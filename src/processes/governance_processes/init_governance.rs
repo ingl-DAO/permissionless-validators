@@ -29,6 +29,8 @@ pub fn create_governance(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     governance_type: GovernanceType,
+    title: String,
+    description: String,
     log_level: u8,
     clock_is_from_account: bool,
     rent_is_from_account: bool,
@@ -135,11 +137,13 @@ pub fn create_governance(
 
     let governance_data = GovernanceData {
         validation_phrase: GOVERNANCE_DATA_VAL_PHRASE,
-        expiration_time: clock_data.unix_timestamp as u32 + 60 * 60 * 24 * 30,
+        expiration_time: clock_data.unix_timestamp as u32 + config_data.governance_expiration_time,
         is_still_ongoing: true,
         date_finalized: None,
         did_proposal_pass: None,
         is_proposal_executed: false,
+        title: title,
+        description: description,
         votes: BTreeMap::new(),
         governance_type: governance_type,
     };

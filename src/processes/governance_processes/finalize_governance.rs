@@ -108,7 +108,7 @@ pub fn finalize_governance(
         || (governance_data.expiration_time < clock_data.unix_timestamp as u32)
     {
         governance_data.did_proposal_pass = Some(false);
-    } else if total_yes_votes as f64 >= total_votes_expected as f64 * 4.0 / 5.0 {
+    } else if total_yes_votes as f64 >= total_votes_expected as f64 * GOVERNANCE_EXECUTION_THRESHOLD{
         governance_data.did_proposal_pass = Some(true);
         match governance_data.clone().governance_type {
             GovernanceType::ProgramUpgrade {
@@ -116,7 +116,7 @@ pub fn finalize_governance(
                 code_link: _,
             } => {
                 general_data.last_feeless_redemption_date =
-                    clock_data.unix_timestamp as u32 + (86400 * 30)
+                    clock_data.unix_timestamp as u32 + FEELESS_REDEMPTION_PERIOD;
             }
             GovernanceType::VoteAccountGovernance(x) => match x {
                 VoteAccountGovernance::ValidatorID(_) => {

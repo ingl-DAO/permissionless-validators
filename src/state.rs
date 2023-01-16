@@ -53,6 +53,10 @@ pub mod constants {
     pub const T_STAKE_ACCOUNT_KEY: &[u8] = b"t_stake_account_key";
     pub const T_WITHDRAW_KEY: &[u8] = b"t_withdraw_key";
 
+    pub const FEELESS_REDEMPTION_PERIOD: u32 = 86400 * 30; // 1 month
+    pub const GOVERNANCE_EXECUTION_THRESHOLD: f64 = 4.0 / 5.0; // 80%
+    pub const GOVERNANCE_SAFETY_LEEWAY: u32 = 86400 * 30; // 1 month
+
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
     }
@@ -86,6 +90,8 @@ pub struct ValidatorConfig {
     pub creator_royalties: u16,
     pub commission: u8,
     pub validator_id: Pubkey,
+    pub governance_expiration_time: u32,
+    pub collection_uri: String,
     pub validator_name: String,
     pub twitter_handle: String,
     pub discord_invite: String,
@@ -94,9 +100,10 @@ pub struct ValidatorConfig {
 
 impl ValidatorConfig {
     pub fn get_space(&self) -> usize {
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4  = 79
-        79 + self.validator_name.len()
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4 + 4  = 83
+        79 + self.collection_uri.len()
+            + self.validator_name.len()
             + self.twitter_handle.len()
             + self.discord_invite.len()
             + self.website.len()
@@ -160,6 +167,18 @@ impl ValidatorConfig {
         if self.website.len() > 64 {
             Err(InglError::InvalidConfigData.utilize("Website must be less than 32 characters"))?
         }
+        if self.governance_expiration_time < 86400 * 35 {
+            Err(InglError::InvalidConfigData
+                .utilize("Governance expiration time must be greater than 35 days"))?
+        }
+        if self.governance_expiration_time > 86400 * 365 {
+            Err(InglError::InvalidConfigData
+                .utilize("Governance expiration time must be less than 1 year"))?
+        }
+        if self.collection_uri.len() > 75 {
+            Err(InglError::InvalidConfigData
+                .utilize("Collection URI must be less than 64 characters"))?
+        }
         Ok(())
     }
 
@@ -174,6 +193,8 @@ impl ValidatorConfig {
         creator_royalties: u16,
         commission: u8,
         validator_id: Pubkey,
+        governance_expiration_time: u32,
+        collection_uri: String,
         validator_name: String,
         twitter_handle: String,
         discord_invite: String,
@@ -191,6 +212,8 @@ impl ValidatorConfig {
             creator_royalties,
             commission,
             validator_id,
+            governance_expiration_time,
+            collection_uri,
             validator_name,
             twitter_handle,
             discord_invite,
@@ -280,9 +303,9 @@ impl UrisAccount {
         if rarity as usize > self.rarities.len() {
             Err(InglError::InvalidUrisAccountData.utilize("Rarity is out of bounds"))?
         }
-        if uris.len() == 0 {
-            Err(InglError::InvalidUrisAccountData.utilize("Uris vector is empty"))?
-        }
+        // if uris.len() == 0 {
+        //     Err(InglError::InvalidUrisAccountData.utilize("Uris vector is empty"))?
+        // }
         let mut space = 0;
         for i in uris.iter() {
             space += i.len() + 4;
@@ -564,6 +587,8 @@ pub struct GovernanceData {
     pub date_finalized: Option<u32>,
     pub did_proposal_pass: Option<bool>,
     pub is_proposal_executed: bool,
+    pub title: String,
+    pub description: String,
     pub votes: BTreeMap<u32, bool>,
     pub governance_type: GovernanceType,
 }
@@ -571,6 +596,8 @@ impl GovernanceData {
     pub fn get_space(&self) -> usize {
         let mut space = 4 + 4 + 1 + 4;
         space += self.votes.len() * 5;
+        space += 4 + self.title.len();
+        space += 4 + self.description.len();
 
         space += 1 + match self.governance_type.clone() {
             GovernanceType::ConfigAccount(tmp) => match tmp {
@@ -597,6 +624,12 @@ impl GovernanceData {
     }
 
     pub fn verify(&self) -> ProgramResult {
+        if self.title.len() > 100 {
+            Err(InglError::InvalidData.utilize("Title can't be more than 150 characters"))?
+        }
+        if self.description.len() > 350 {
+            Err(InglError::InvalidData.utilize("Description can't be more than 1000 characters"))?
+        }
         self.governance_type.verify()
     }
 }

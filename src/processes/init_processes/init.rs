@@ -29,6 +29,7 @@ pub fn process_init(
     creator_royalties: u16,
     rarities: Vec<u16>,
     rarity_names: Vec<String>,
+    governance_expiration_time: u32,
     twitter_handle: String,
     discord_invite: String,
     validator_name: String,
@@ -89,7 +90,7 @@ pub fn process_init(
     mint_collection(
         program_id,
         create_collection_accounts,
-        collection_uri,
+        collection_uri.clone(),
         validator_name.clone(),
         log_level,
     )
@@ -127,6 +128,8 @@ pub fn process_init(
         creator_royalties,
         init_commission,
         *validator_account_info.key,
+        governance_expiration_time,
+        collection_uri,
         validator_name,
         twitter_handle,
         discord_invite,
