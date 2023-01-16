@@ -57,35 +57,41 @@ pub fn upload_uris(
         uris,
         rarity,
     );
-    let incremented_space = uris_account_data
+    uris_account_data
         .set_uri(rarity, uris)
         .error_log("Error @ uri setting")?;
     log!(log_level, 2, "Uploaded URIs for generation !!");
 
-    let space = uris_account_info.data_len() + incremented_space;
-    if space > 16000 {
+    let space = uris_account_data.get_space();
+    if space > 20000 {
         Err(InglError::UrisAccountTooBig.utilize(
             "Uploaded too many images. Consider Reseting and selecting the best and less images",
         ))?
     }
-    let lamports = Rent::get()?.minimum_balance(space)
-        - Rent::get()?.minimum_balance(uris_account_info.data_len());
-    log!(
-        log_level,
-        2,
-        "Adding {} lamports to config account",
-        lamports
-    );
-    invoke(
-        &system_instruction::transfer(payer_account_info.key, uris_account_info.key, lamports),
-        &[payer_account_info.clone(), uris_account_info.clone()],
-    )
-    .error_log("Error: Failed to transfer lamports to config account")?;
+    let lamports: i128 =
+        Rent::get()?.minimum_balance(space) as i128 - uris_account_info.lamports() as i128;
+    if lamports > 0 {
+        log!(
+            log_level,
+            2,
+            "Adding {} lamports to config account",
+            lamports
+        );
+        invoke(
+            &system_instruction::transfer(
+                payer_account_info.key,
+                uris_account_info.key,
+                lamports as u64,
+            ),
+            &[payer_account_info.clone(), uris_account_info.clone()],
+        )
+        .error_log("Error: Failed to transfer lamports to config account")?;
+    }
     log!(
         log_level,
         2,
         "Adding {} bytes to config account",
-        incremented_space
+        space - uris_account_info.data_len()
     );
     uris_account_info
         .realloc(space, false)

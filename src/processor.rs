@@ -11,7 +11,7 @@ use crate::{
             execute_governance::execute_governance, finalize_governance::finalize_governance,
             init_governance::create_governance, vote_governance::vote_governance,
         },
-        init_processes::{init::process_init, upload_uris::upload_uris},
+        init_processes::{init::process_init, reset_uris::reset_uris, upload_uris::upload_uris},
         nft_processes::{imprint_rarity::process_imprint_rarity, mint_nft::process_mint_nft},
         rewards_processes::{
             finalize_rebalance::finalize_rebalance, init_rebalance::init_rebalance,
@@ -143,6 +143,10 @@ pub fn process_instruction(
 
         InstructionEnum::FinalizeRebalance { log_level } => {
             finalize_rebalance(program_id, accounts, log_level)?
+        }
+
+        InstructionEnum::ResetUris { log_level } => {
+            reset_uris(program_id, accounts, log_level)?;
         }
 
         _ => {

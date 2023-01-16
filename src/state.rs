@@ -13,6 +13,7 @@ use solana_program::{
     account_info::AccountInfo,
     borsh::try_from_slice_unchecked,
     entrypoint::ProgramResult,
+    msg,
     native_token::LAMPORTS_PER_SOL,
     program_error::ProgramError,
     pubkey::Pubkey,
@@ -101,8 +102,8 @@ pub struct ValidatorConfig {
 impl ValidatorConfig {
     pub fn get_space(&self) -> usize {
         // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4 + 4  = 83
-        79 + self.collection_uri.len()
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4 + 4 + 4  = 87
+        87 + self.collection_uri.len()
             + self.validator_name.len()
             + self.twitter_handle.len()
             + self.discord_invite.len()
@@ -299,24 +300,18 @@ impl UrisAccount {
         Ok(())
     }
 
-    pub fn set_uri(&mut self, rarity: u8, uris: Vec<String>) -> Result<usize, ProgramError> {
+    pub fn set_uri(&mut self, rarity: u8, uris: Vec<String>) -> Result<(), ProgramError> {
+        msg!("Rarity: {}", rarity);
         if rarity as usize > self.rarities.len() {
             Err(InglError::InvalidUrisAccountData.utilize("Rarity is out of bounds"))?
         }
-        // if uris.len() == 0 {
-        //     Err(InglError::InvalidUrisAccountData.utilize("Uris vector is empty"))?
-        // }
-        let mut space = 0;
-        for i in uris.iter() {
-            space += i.len() + 4;
-        }
+        
         if self.uris.len() == rarity as usize {
             self.uris.push(uris);
-            space += 4;
         } else {
             self.uris[rarity as usize].extend(uris);
         }
-        Ok(space)
+        Ok(())
     }
 
     pub fn get_uri(&self, mut seed: u16) -> (String, u8) {
@@ -334,6 +329,21 @@ impl UrisAccount {
             rarity_names: Vec::new(),
             uris: Vec::new(),
         }
+    }
+    pub fn get_space(&self) -> usize {
+        let mut space = 4;
+        space += self.rarities.len() * 2 + 4;
+        self.rarity_names.iter().for_each(|x| {
+            space += x.len() + 4;
+        });
+        space += 8;
+        for i in self.uris.iter() {
+            space += 4;
+            for j in i.iter() {
+                space += j.len() + 4;
+            }
+        }
+        space
     }
 }
 
