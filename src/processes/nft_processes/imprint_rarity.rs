@@ -2,7 +2,7 @@ use crate::{
     log,
     state::{
         constants::{
-            CUMMULATED_RARITY, GEM_ACCOUNT_CONST, INGL_MINT_AUTHORITY_KEY, INGL_VRF_MAX_RESULT,
+            CUMMULATED_RARITY, INGL_MINT_AUTHORITY_KEY, INGL_VRF_MAX_RESULT, NFT_ACCOUNT_CONST,
         },
         NftData, UrisAccount, VrfClientState,
     },
@@ -102,7 +102,7 @@ pub fn process_imprint_rarity(
         .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])?;
 
     let (_gem_pubkey, _gem_bump) =
-        nft_account_info.assert_seed(&mint_account_info.key, &[GEM_ACCOUNT_CONST.as_ref()])?;
+        nft_account_info.assert_seed(&mint_account_info.key, &[NFT_ACCOUNT_CONST.as_ref()])?;
 
     let mpl_token_metadata_id = mpl_token_metadata::id();
     let (nft_edition_key, _nft_edition_bump) = Pubkey::find_program_address(
