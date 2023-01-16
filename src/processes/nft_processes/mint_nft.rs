@@ -3,14 +3,11 @@ use std::collections::BTreeMap;
 use crate::{
     error::InglError,
     log,
-    state::{
-        constants::*, FundsLocation, GeneralData, NftData, UrisAccount, ValidatorConfig,
-        VrfClientState,
-    },
+    state::{constants::*, FundsLocation, GeneralData, NftData, ValidatorConfig, VrfClientState},
     utils::{get_clock_data, get_rent_data_from_account, AccountInfoHelpers, ResultExt},
 };
-use anchor_lang::{accounts::account::Account as AnchorAccount, prelude::ProgramError};
-use anchor_spl::token::accessor::authority;
+use anchor_lang::prelude::{Account as AnchorAccount, ProgramError};
+use anchor_spl::token::TokenAccount;
 use borsh::BorshSerialize;
 use mpl_token_metadata::{
     self as metaplex,
@@ -29,7 +26,7 @@ use solana_program::{
 
 use spl_associated_token_account::{get_associated_token_address, *};
 use spl_token::{self, error::TokenError, state::Account};
-use switchboard_v2::{VrfRequestRandomness, SWITCHBOARD_PROGRAM_ID};
+use switchboard_v2::{VrfAccountData, VrfRequestRandomness, SWITCHBOARD_PROGRAM_ID};
 
 pub fn process_mint_nft(
     program_id: &Pubkey,
@@ -142,7 +139,7 @@ pub fn process_mint_nft(
         &ingl_config_account_info,
         program_id,
     )?);
-    let uris_data = Box::new(UrisAccount::parse(&uris_account_info, program_id)?);
+    // let uris_data = Box::new(UrisAccount::parse(&uris_account_info, program_id)?);
     let mut general_data = Box::new(GeneralData::parse(&general_account_info, program_id)?);
 
     let (vote_account_key, _va_bump) =
@@ -199,26 +196,6 @@ pub fn process_mint_nft(
 
     // Getting timestamp
     let current_timestamp = clock_data.unix_timestamp as u32;
-
-    let space = 130;
-    let rent_lamports = rent_data.minimum_balance(space);
-
-    invoke_signed(
-        &system_instruction::create_account(
-            payer_account_info.key,
-            &nft_account_pubkey,
-            rent_lamports,
-            space as u64,
-            program_id,
-        ),
-        &[payer_account_info.clone(), nft_account_info.clone()],
-        &[&[
-            NFT_ACCOUNT_CONST.as_ref(),
-            nft_mint_account_info.key.as_ref(),
-            &[nft_account_bump],
-        ]],
-    )
-    .error_log("Error @ nft_account_info creation")?;
 
     let space = 82;
     let rent_lamports = rent_data.minimum_balance(space);
@@ -323,14 +300,6 @@ pub fn process_mint_nft(
         share: 100,
     });
 
-    let seed = if clock_is_from_account {
-        1
-    } else {
-        panic!("Haven't yet written the seed source")
-    };
-
-    let (uri, rarity) = uris_data.get_uri(seed);
-
     log!(log_level, 2, "starting metadata creation");
     invoke_signed(
         &mpl_token_metadata::instruction::create_metadata_accounts_v3(
@@ -348,7 +317,7 @@ pub fn process_mint_nft(
                 "{} #{}",
                 config_data.validator_name, &general_data.mint_numeration
             ),
-            uri,
+            String::from("https://arweave.net/AuerBevMJQeh_kznVHNvfpH_hmeDfGwKjDrknHv13z0"),
             Some(creators),
             300,
             true,
@@ -465,7 +434,7 @@ pub fn process_mint_nft(
         validation_phrase: NFT_DATA_VAL_PHRASE,
         date_created: current_timestamp,
         numeration: general_data.mint_numeration,
-        rarity: Some(rarity),
+        rarity: None,
         funds_location: FundsLocation::Delegated,
         all_withdraws: Vec::new(),
         all_votes: BTreeMap::new(),
@@ -475,6 +444,7 @@ pub fn process_mint_nft(
     let space = nft_account_data.get_space();
     let rent_lamports = rent_data.minimum_balance(space);
 
+    log!(log_level, 2, "creating nft_account_info");
     invoke_signed(
         &system_instruction::create_account(
             payer_account_info.key,
@@ -491,6 +461,8 @@ pub fn process_mint_nft(
         ]],
     )
     .error_log("Error @ nft_account_info creation")?;
+
+    log!(log_level, 2, "nft_account_info created");
     nft_account_data
         .serialize(&mut &mut nft_account_info.data.borrow_mut()[..])
         .error_log("Error @ nft_account_data serialization")?;
@@ -505,7 +477,8 @@ pub fn process_mint_nft(
         nft_vrf_state_account_info.clone(),
         sysvar_rent_account_info.clone(),
     ];
-    create_vrf_state_account(program_id, create_vrf_accounts, 0, log_level)?;
+    create_vrf_state_account(program_id, create_vrf_accounts, 0, log_level)
+        .error_log("error caling @create_vrf_state_account ")?;
 
     let request_randomness_accounts = &[
         payer_account_info.clone(),
@@ -528,7 +501,8 @@ pub fn process_mint_nft(
         switchboard_state_bump,
         permission_bump,
         log_level,
-    )?;
+    )
+    .error_log("error calling @create_randomness")?;
 
     let freeze_nft_accounts = &[
         payer_account_info.clone(),
@@ -537,7 +511,8 @@ pub fn process_mint_nft(
         mint_authority_account_info.clone(),
         nft_edition_account_info.clone(),
     ];
-    freeze_nft_account(program_id, freeze_nft_accounts, log_level)?;
+    freeze_nft_account(program_id, freeze_nft_accounts, log_level)
+        .error_log("error calling @freeze_nft_account")?;
 
     log!(log_level, 4, "nft account created!!!");
     Ok(())
@@ -573,9 +548,9 @@ fn create_vrf_state_account(
     if max_result > INGL_VRF_MAX_RESULT {
         Err(InglError::MaxResultExceedsMaximum.utilize("VRF max result"))?;
     }
-    let nft_vrf_authority = authority(nft_vrf_account_info)
-        .error_log("failed to deserialize @nft_vrf_account_info data")?;
-    if nft_vrf_state_key != nft_vrf_authority {
+    let nft_vrf_data = VrfAccountData::new(&nft_vrf_account_info)
+        .error_log("failed to load @nft_vrf_account_info data")?;
+    if nft_vrf_state_key != nft_vrf_data.authority {
         Err(InglError::InvalidVrfAuthorityError.utilize("@nft_vrf_autority"))?;
     }
 
@@ -616,6 +591,11 @@ fn create_vrf_state_account(
         .serialize(&mut &mut nft_vrf_state_account_info.data.borrow_mut()[..])
         .error_log("Failed to serialized VRF account data")?;
 
+    drop(payer_account_info);
+    drop(nft_vrf_account_info);
+    drop(nft_vrf_state_account_info);
+    drop(sysvar_rent_account_info);
+
     log!(log_level, 4, "Init VRF account !!!");
     Ok(())
 }
@@ -650,50 +630,36 @@ fn request_randomness(
     payer_account_info
         .assert_signer()
         .error_log("@payer_authority_account_info")?;
-    payer_wallet_account_info
-        .assert_owner(payer_account_info.key)
-        .error_log("@payer_wallet_account_info")?;
+    // payer_wallet_account_info
+    //     .assert_owner(&spl_token::id())
+    //     .error_log("@payer_wallet_account_info")?; //TODO comme to this check
 
     nft_vrf_account_info
         .assert_owner(&SWITCHBOARD_PROGRAM_ID)
         .error_log("@nft_vrf_account_info")?;
-    queue_authority_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@queue_authority_account_info")?;
-    data_buffer_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@data_buffer_account_info")?;
-    permission_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@permission_account_info")?;
-    switchboard_program_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@switchboard_account_info")?;
     oracle_queue_account_info
         .assert_owner(&SWITCHBOARD_PROGRAM_ID)
         .error_log("@oracle_queue_account_info")?;
     program_state_account_info
         .assert_owner(&SWITCHBOARD_PROGRAM_ID)
         .error_log("@program_state_account_info")?;
-    escrow_account_info
-        .assert_owner(&program_state_account_info.key)
-        .error_log("@escrow_account_info")?;
 
-    let oracle_queue_authority = authority(&oracle_queue_account_info)
-        .error_log("failed to deserialize @nft_vrf_account_info data")?;
-    if oracle_queue_authority != *queue_authority_account_info.key {
-        Err(InglError::InvalidVrfAuthorityError.utilize("@oracle_queue_account_info"))?;
-    }
+    let switchboard_vrf = nft_vrf_account_info.clone();
+    let nft_vrf_data = VrfAccountData::new(&switchboard_vrf)
+        .error_log("failed to load @nft_vrf_account_info data")?;
 
     escrow_account_info
-        .assert_key_match(&nft_vrf_account_info.key)
+        .assert_key_match(&nft_vrf_data.escrow)
         .error_log("@escrow_account_info, @nft_vrf_account_info")?;
+    drop(nft_vrf_data);
+    drop(switchboard_vrf);
+
     recent_blockhashes_account_info
         .assert_key_match(&recent_blockhashes::ID)
         .error_log("@recent_blockhashes_account_info")?;
     token_program_account_info
         .assert_key_match(&spl_token::id())
-        .error_log("token_program_account_info")?;
+        .error_log("@token_program_account_info")?;
 
     let (_nft_vrf_state_key, nft_vrf_state_bump) = nft_vrf_state_account_info
         .assert_seed(
@@ -702,9 +668,9 @@ fn request_randomness(
         )
         .error_log("@nft_vrf_state_account")?;
 
-    let escrow_token_account = AnchorAccount::try_from(&escrow_account_info)
+    let escrow_token_account: AnchorAccount<TokenAccount> = AnchorAccount::try_from(&escrow_account_info)
         .error_log("Failed to get Account<TokenAccount> @escrow_account_info")?;
-    let payer_wallet_token_account = AnchorAccount::try_from(&payer_account_info)
+    let payer_wallet_token_account: AnchorAccount<TokenAccount>= AnchorAccount::try_from(&payer_wallet_account_info)
         .error_log("Failed to get Account<TokenAccount> @payer_authority_account_info")?;
 
     let vrf_request_randomness = VrfRequestRandomness {
@@ -714,27 +680,32 @@ fn request_randomness(
         queue_authority: queue_authority_account_info.clone(),
         data_buffer: data_buffer_account_info.clone(),
         permission: permission_account_info.clone(),
-        escrow: escrow_token_account,
-        payer_wallet: payer_wallet_token_account,
+        escrow: escrow_token_account.clone(),
+        payer_wallet: payer_wallet_token_account.clone(),
         payer_authority: payer_account_info.clone(),
         recent_blockhashes: recent_blockhashes_account_info.clone(),
         program_state: program_state_account_info.clone(),
         token_program: token_program_account_info.clone(),
     };
 
+    log!(log_level, 0, "created VrfRequestRandomness accounts");
     let state_seeds: &[&[&[u8]]] = &[&[
         &VRF_STATE_KEY,
-        nft_vrf_account_info.key.as_ref(),
+        &nft_vrf_account_info.key.as_ref(),
         &[nft_vrf_state_bump],
     ]];
-    vrf_request_randomness.invoke_signed(
-        switchboard_program_account_info.clone(),
-        switchboard_state_bump,
-        permission_bump,
-        state_seeds,
-    )?;
 
-    log!(log_level, 4, "requesting randomness !!!");
+    log!(log_level, 0, "requesting vrf randomness...");
+    vrf_request_randomness
+        .invoke_signed(
+            switchboard_program_account_info.clone(),
+            switchboard_state_bump,
+            permission_bump,
+            state_seeds,
+        )
+        .error_log("error on calling vrf_request_randomness @invoke")?;
+
+    log!(log_level, 4, "requested randomness !!!");
     Ok(())
 }
 

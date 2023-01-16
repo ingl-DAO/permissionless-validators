@@ -48,7 +48,6 @@ pub mod constants {
     pub const INGL_PROGRAM_AUTHORITY_KEY: &[u8] = b"ingl_program_authority";
     pub const INGL_PROPOSAL_KEY: &[u8] = b"ingl_proposal";
     pub const VRF_STATE_KEY: &[u8] = b"ingl_vrf_state_key";
-    pub const GEM_ACCOUNT_CONST: &[u8] = b"ingl_gem_account_const";
     pub const VALIDATOR_ID_SEED: &[u8] = b"validator_ID___________________";
     pub const T_STAKE_ACCOUNT_KEY: &[u8] = b"t_stake_account_key";
     pub const T_WITHDRAW_KEY: &[u8] = b"t_withdraw_key";
