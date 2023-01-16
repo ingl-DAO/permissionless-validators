@@ -11,7 +11,7 @@ from solana.rpc.async_api import AsyncClient
 from solana.rpc.api import Client
 from rich import print
 
-async def ingl_init(payer_keypair: KeypairInput, validator_pubkey: PubkeyInput, init_commission: int, max_primary_stake: int, nft_holders_share: int, initial_redemption_fee: int, is_validator_id_switchable: bool, unit_backing: int, redemption_fee_duration: int, proposal_quorum: int, creator_royalties: int, rarities: List[int], rarity_names: List[str], twitter_handle: str, discord_invite: str, validator_name: str, collection_uri: str, website: str, client: AsyncClient, log_level: int = 0) -> str:
+async def ingl_init(payer_keypair: KeypairInput, validator_pubkey: PubkeyInput, init_commission: int, max_primary_stake: int, nft_holders_share: int, initial_redemption_fee: int, is_validator_id_switchable: bool, unit_backing: int, redemption_fee_duration: int, proposal_quorum: int, creator_royalties: int, governance_expiration_time: int, rarities: List[int], rarity_names: List[str], twitter_handle: str, discord_invite: str, validator_name: str, collection_uri: str, website: str, client: AsyncClient, log_level: int = 0) -> str:
     mint_pubkey, _mint_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_NFT_COLLECTION_KEY, 'UTF-8')], get_program_id())
     mint_authority_pubkey, _mint_authority_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_MINT_AUTHORITY_KEY, 'UTF-8')], get_program_id())
     collection_holder_pubkey, _collection_holder_pubkey_bump = PublicKey.find_program_address([bytes(ingl_constants.COLLECTION_HOLDER_KEY, 'UTF-8')], get_program_id())
@@ -67,7 +67,7 @@ async def ingl_init(payer_keypair: KeypairInput, validator_pubkey: PubkeyInput, 
         system_program_meta,
     ]
     # print(accounts)
-    data = build_instruction(InstructionEnum.enum.Init(init_commission = init_commission, max_primary_stake = max_primary_stake, nft_holders_share = nft_holders_share, initial_redemption_fee = initial_redemption_fee, is_validator_id_switchable = is_validator_id_switchable, unit_backing = unit_backing, redemption_fee_duration = redemption_fee_duration, proposal_quorum = proposal_quorum, creator_royalties = creator_royalties, rarities = rarities, rarity_names = rarity_names, twitter_handle = twitter_handle, discord_invite = discord_invite, validator_name = validator_name, collection_uri = collection_uri, website = website, log_level = log_level))
+    data = build_instruction(InstructionEnum.enum.Init(init_commission = init_commission, max_primary_stake = max_primary_stake, nft_holders_share = nft_holders_share, initial_redemption_fee = initial_redemption_fee, is_validator_id_switchable = is_validator_id_switchable, unit_backing = unit_backing, redemption_fee_duration = redemption_fee_duration, proposal_quorum = proposal_quorum, creator_royalties = creator_royalties, governance_expiration_time = governance_expiration_time, rarities = rarities, rarity_names = rarity_names, twitter_handle = twitter_handle, discord_invite = discord_invite, validator_name = validator_name, collection_uri = collection_uri, website = website, log_level = log_level))
     transaction = Transaction()
     transaction.add(ComputeBudgetInstruction().set_compute_unit_limit(250_000, payer_keypair.public_key))
     transaction.add(TransactionInstruction(accounts, get_program_id(), data))
@@ -92,8 +92,8 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, clie
     collection_account_pda, _collection_account_bump = PublicKey.find_program_address([b"metadata", bytes(metaplex_program_id), bytes(collection_mint_pubkey)], metaplex_program_id)
     nft_account_pubkey, _nft_account_bump = PublicKey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
     ingl_config_pubkey, _ingl_config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
-    uri_account_pubkey, _uri_account_bump = PublicKey.find_program_address([bytes(ingl_constants.URIS_ACCOUNT_SEED, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
-    general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8'), bytes(mint_keypair.public_key)], get_program_id())
+    uri_account_pubkey, _uri_account_bump = PublicKey.find_program_address([bytes(ingl_constants.URIS_ACCOUNT_SEED, 'UTF-8')], get_program_id())
+    general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
     
     payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
     mint_account_meta = AccountMeta(mint_keypair.public_key, True, True)
@@ -243,7 +243,7 @@ async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, 
 
 async def create_vote_account(validator_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
     expected_vote_pubkey, _expected_vote_pubkey_nonce = PublicKey.find_program_address([bytes(ingl_constants.VOTE_ACCOUNT_KEY, "UTF-8")], get_program_id())
-    expected_stake_key, _expected_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.STAKE_ACCOUNT_KEY, 'UTF-8'), bytes(expected_vote_pubkey)], get_program_id())
+    expected_stake_key, _expected_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     config_account_pubkey, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
     general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
 
@@ -293,7 +293,7 @@ async def init_rebalance(payer_keypair: KeypairInput, client: AsyncClient, log_l
     expected_stake_key, _expected_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     t_stake_key, _t_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.T_STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     t_withdraw_key, _t_withdraw_bump = PublicKey.find_program_address([bytes(ingl_constants.T_WITHDRAW_KEY, 'UTF-8')], get_program_id())
-    pd_pool_pubkey, _pd_pool_bump = PublicKey.find_program_address([bytes(ingl_constants.PD_POOL_KEY, 'UTF-8')], get_program_id())
+    pd_pool_pubkey, _pd_pool_bump = PublicKey.find_program_address([bytes(ingl_constants.PD_POOL_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
     config_account_pubkey, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
 
@@ -349,7 +349,7 @@ async def finalize_rebalance(payer_keypair: KeypairInput, client: AsyncClient, l
     expected_stake_key, _expected_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     t_stake_key, _t_stake_bump = PublicKey.find_program_address([bytes(ingl_constants.T_STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     t_withdraw_key, _t_withdraw_bump = PublicKey.find_program_address([bytes(ingl_constants.T_WITHDRAW_KEY, 'UTF-8')], get_program_id())
-    pd_pool_pubkey, _pd_pool_bump = PublicKey.find_program_address([bytes(ingl_constants.PD_POOL_KEY, 'UTF-8')], get_program_id())
+    pd_pool_pubkey, _pd_pool_bump = PublicKey.find_program_address([bytes(ingl_constants.PD_POOL_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     general_account_pubkey, _general_account_bump = PublicKey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
     config_account_pubkey, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
 
@@ -397,7 +397,7 @@ async def finalize_rebalance(payer_keypair: KeypairInput, client: AsyncClient, l
         return(f"Error: {e}")
 
 async def process_rewards(payer_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
-    ingl_team_account_pubkey, _ita_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_TEAM_ACCOUNT, 'UTF-8')], get_program_id())
+    ingl_team_account_pubkey = PublicKey("Team111111111111111111111111111111111111111")
     config_account_pubkey, _config_account_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
     authorized_withdrawer_key, _authorized_withdrawer_bump = PublicKey.find_program_address([bytes(ingl_constants.AUTHORIZED_WITHDRAWER_KEY, 'UTF-8') ], get_program_id())
     vote_account_key, _vote_account_bump = PublicKey.find_program_address([bytes(ingl_constants.VOTE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
@@ -784,8 +784,8 @@ async def reset_uris(payer_keypair: KeypairInput, client: AsyncClient, log_level
         return(f"Error: {e}")
 
 def upload_uris(payer_keypair: KeypairInput, uris: List[str], rarity: int, client: Client, log_level: int = 0) -> str:
-    config_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_ACCOUNT_KEY, 'UTF-8')], get_program_id())
-    uris_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_URIS_ACCOUNT_KEY, 'UTF-8')], get_program_id())
+    config_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
+    uris_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.URIS_ACCOUNT_SEED, 'UTF-8')], get_program_id())
 
     payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True)
     config_account_meta = AccountMeta(pubkey = config_account_key, is_signer = False, is_writable = True)
@@ -808,7 +808,37 @@ def upload_uris(payer_keypair: KeypairInput, uris: List[str], rarity: int, clien
         transaction.add(ComputeBudgetInstruction().set_compute_unit_limit(1_000_000, payer_keypair.public_key))
         transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
         t_dets = client.send_transaction(transaction, payer_keypair.keypair)
+        return t_dets
+    except Exception as e:
+        print(t_dets, e)
+        raise e
 
+async def reset_uris(payer_keypair: KeypairInput, client: AsyncClient, log_level: int = 0) -> str:
+    config_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
+    uris_account_key, _config_bump = PublicKey.find_program_address([bytes(ingl_constants.URIS_ACCOUNT_SEED, 'UTF-8')], get_program_id())
+
+    payer_account_meta = AccountMeta(pubkey = payer_keypair.public_key, is_signer = True, is_writable = True)
+    config_account_meta = AccountMeta(pubkey = config_account_key, is_signer = False, is_writable = True)
+    system_program_meta = AccountMeta(pubkey = system_program.SYS_PROGRAM_ID, is_signer = False, is_writable = False)
+    uris_account_meta = AccountMeta(pubkey = uris_account_key, is_signer = False, is_writable = True)
+
+
+    accounts = [
+        payer_account_meta,
+        config_account_meta,
+        uris_account_meta,
+
+        system_program_meta,
+    ]
+
+    t_dets = None
+    try:
+        instruction_data = build_instruction(InstructionEnum.enum.ResetUris(log_level = log_level))
+        transaction = Transaction()
+        transaction.add(ComputeBudgetInstruction().set_compute_unit_limit(1_000_000, payer_keypair.public_key))
+        transaction.add(TransactionInstruction(accounts, get_program_id(), instruction_data))
+        t_dets = await client.send_transaction(transaction, payer_keypair.keypair)
+        await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
         return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
     except Exception as e:
         print(t_dets, e)

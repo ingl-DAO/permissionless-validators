@@ -15,6 +15,7 @@ InitStruct = CStruct(
     "redemption_fee_duration" / U32,
     "proposal_quorum" / U8,
     "creator_royalties" / U16,
+    "governance_expiration_time" / U32,
     "rarities" / Vec(U16),
     "rarity_names" / Vec(String),
     "twitter_handle" / String,
@@ -71,6 +72,7 @@ VoteAccountGovernance = Enum(
     "Commission" / CStruct("value" / U8),
     enum_name = "VoteAccountGovernance",
 )
+
 
 def build_governance_type(governance_type: GovernanceType.enum, config_account_type:Optional[ConfigAccountType.enum] = None, vote_account_governance: Optional[VoteAccountGovernance.enum] = None):
     if governance_type != GovernanceType.enum.ProgramUpgrade():

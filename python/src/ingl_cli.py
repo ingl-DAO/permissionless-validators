@@ -11,7 +11,7 @@ from .state import Constants as ingl_constants
 from rich import print
 from solana.rpc.async_api import AsyncClient
 from .cli_state import CLI_VERSION
-import os
+import time
 uasyncclient = Uasyncclient(rpc_url.target_network)
 
 @click.group()
@@ -71,9 +71,14 @@ def set(program_id, url, keypair):
 
 @click.command(name = "get")
 def get():
+
     print("\nProgram ID: ", get_program_id())
     print("Network: ", get_network())
     print("Keypair: ", get_keypair_path())
+    try:
+        print("Keypair Public Key: ", parse_keypair_input(get_keypair_path()).public_key)
+    except Exception as e:
+        pass
     print("\nConfig retrieved successfully.")
 
 config.add_command(set)
@@ -125,8 +130,9 @@ async def ingl(keypair, validator, log_level):
     redemption_fee_duration = click.prompt("Enter the Redemption Fee duration to be set for the validator: ", type=int)
     proposal_quorum = click.prompt("Enter the Proposal Quorum to be set for governance proposals: ", type=int)
     creator_royalty = click.prompt("Enter the Creator Royalty to be set for the validator: ", type=int)
-    rarities = [7000, 2900, 100]#TODO: Make this dynamic
-    rarity_name = ["common", "rare", "epic"]#TODO: Make this dynamic
+    governance_expiration_time = click.prompt("How long should a governance take to expire? (in seconds): ", type=int)
+    rarities = [100, 500, 1500, 2900, 5000]#TODO: Make this dynamic
+    rarity_name = ['Mythic', 'Exalted', 'Rare', 'Uncommon', 'Common']#TODO: Make this dynamic
     twitter_handle = click.prompt("Enter the Twitter handle of the validator: ", type=str)
     discord_invite = click.prompt("Enter the Discord Invite of the validator: ", type=str)
     validator_name = click.prompt("Enter the Name of the validator: ", type=str)
@@ -148,7 +154,7 @@ async def ingl(keypair, validator, log_level):
         print("Invalid Validator Input. ")
         return
         
-    t_dets = await ingl_init(payer_keypair, validator_key, init_commission, max_primary_stake, nft_holders_share, initial_redemption_fee, is_validator_switchable, unit_backing, redemption_fee_duration, proposal_quorum, creator_royalty, rarities, rarity_name, twitter_handle, discord_invite, validator_name, collection_uri, website, client, log_level,)
+    t_dets = await ingl_init(payer_keypair, validator_key, init_commission, max_primary_stake, nft_holders_share, initial_redemption_fee, is_validator_switchable, unit_backing, redemption_fee_duration, proposal_quorum, creator_royalty, governance_expiration_time, rarities, rarity_name, twitter_handle, discord_invite, validator_name, collection_uri, website, client, log_level,)
     print(t_dets)
     await client.close()
 
@@ -177,7 +183,7 @@ async def process_create_vote_account(val_keypair, log_level):
     client_state = await client.is_connected()
     print("Client is connected" if client_state else "Client is Disconnected")
     try:
-        payer_keypair = parse_keypair_input(f"./{val_keypair}")
+        payer_keypair = parse_keypair_input(f"{val_keypair}")
     except Exception as e:
         print("Invalid Keypair Input. ")
         return
@@ -332,6 +338,60 @@ async def process_execute_governance(keypair, numeration, log_level):
     print(t_dets)
     await client.close()    
 
+@click.command(name='upload_uris')
+@click.argument('json_path')
+@click.option('--keypair', '-k', default = get_keypair_path())
+@click.option('--log_level', '-l', default = 2, type=int)
+async def process_upload_uris(keypair, json_path, log_level):
+    client_state = uasyncclient.is_connected()
+    client = AsyncClient(rpc_url.target_network)
+    print("Client is connected" if client_state else "Client is Disconnected")
+    try:
+        payer_keypair = parse_keypair_input(keypair)
+    except Exception as e:
+        print("Invalid Keypair Input, ", e)
+        return
+    try:
+        f = open(f"{json_path}", "r")
+        json_data = json.load(f)
+        f.close()
+    except Exception as e:
+        print("Invalid Json Path. ")
+        return
+    uris = json_data["uris"]
+    txs = []
+    for cnt, rarity in enumerate(uris):
+        z = 0
+        while z < len(rarity):
+            txs.append(upload_uris(payer_keypair, rarity[z:z+11], cnt, uasyncclient, log_level).value)
+            z += 11
+        # print(txs)
+        await client.confirm_transaction(txs[-1], commitment='finalized')
+        print("Done with Rarity: ", json_data["rarity_names"][cnt])
+        time.sleep(3)
+    for i in txs:
+        print(f"Transaction Id: [link=https://explorer.solana.com/tx/{str(i)+rpc_url.get_explorer_suffix()}]{str(i)}[/link]")
+    await client.close()
+
+@click.command(name='reset_uris')
+@click.option('--keypair', '-k', default = get_keypair_path())
+@click.option('--log_level', '-l', default = 2, type=int)
+async def process_reset_uris(keypair, log_level):
+    client = AsyncClient(rpc_url.target_network)
+    client_state = await client.is_connected()
+    print("Client is connected" if client_state else "Client is Disconnected")
+    try:
+        payer_keypair = parse_keypair_input(keypair)
+    except Exception as e:
+        print("Invalid Keypair Input, ", e)
+        return
+    t_dets = await reset_uris(payer_keypair, client, log_level)
+    print(t_dets)
+    await client.close()
+
+
+
+
 entry.add_command(mint)
 entry.add_command(initialize_rebalancing)
 entry.add_command(finalize_rebalancing)
@@ -343,6 +403,9 @@ entry.add_command(process_create_governance)
 entry.add_command(process_vote_governance)
 entry.add_command(process_finalize_governance)
 entry.add_command(process_execute_governance)
+entry.add_command(process_vote_account_rewards)
 entry.add_command(config)
+entry.add_command(process_upload_uris)
+entry.add_command(process_reset_uris)
 if __name__ == '__main__':
     entry()
