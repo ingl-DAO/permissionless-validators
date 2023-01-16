@@ -11,8 +11,8 @@ use crate::{
             execute_governance::execute_governance, finalize_governance::finalize_governance,
             init_governance::create_governance, vote_governance::vote_governance,
         },
-        init_processes::{init::process_init, upload_uris::upload_uris},
-        nft_processes::mint_nft::process_mint_nft,
+        init_processes::{init::process_init, reset_uris::reset_uris, upload_uris::upload_uris},
+        nft_processes::{imprint_rarity::process_imprint_rarity, mint_nft::process_mint_nft},
         rewards_processes::{
             finalize_rebalance::finalize_rebalance, init_rebalance::init_rebalance,
             nft_withdraw::nft_withdraw, process_rewards::process_rewards,
@@ -36,8 +36,9 @@ pub fn process_instruction(
             is_validator_id_switchable,
             unit_backing,
             redemption_fee_duration,
-            program_upgrade_threshold,
+            proposal_quorum: program_upgrade_threshold,
             creator_royalties,
+            governance_expiration_time,
             rarities,
             rarity_names,
             twitter_handle,
@@ -60,6 +61,7 @@ pub fn process_instruction(
             creator_royalties,
             rarities,
             rarity_names,
+            governance_expiration_time,
             twitter_handle,
             discord_invite,
             validator_name,
@@ -70,8 +72,20 @@ pub fn process_instruction(
             create_vote_account(program_id, accounts, log_level, false)?
         }
 
-        InstructionEnum::MintNft { log_level } => {
-            process_mint_nft(program_id, accounts, log_level, false)?
+        InstructionEnum::MintNft {
+            log_level,
+            switchboard_state_bump,
+            permission_bump,
+        } => process_mint_nft(
+            program_id,
+            accounts,
+            switchboard_state_bump,
+            permission_bump,
+            log_level,
+            false,
+        )?,
+        InstructionEnum::ImprintRarity { log_level } => {
+            process_imprint_rarity(program_id, accounts, log_level, false)?
         }
 
         InstructionEnum::UploadUris {
@@ -83,10 +97,14 @@ pub fn process_instruction(
         InstructionEnum::InitGovernance {
             log_level,
             governance_type,
+            title,
+            description,
         } => create_governance(
             program_id,
             accounts,
             governance_type,
+            title,
+            description,
             log_level,
             false,
             false,
@@ -96,8 +114,9 @@ pub fn process_instruction(
             log_level,
             numeration,
             vote,
+            cnt,
         } => vote_governance(
-            program_id, accounts, numeration, vote, log_level, false, false,
+            program_id, accounts, numeration, vote, cnt, log_level, false, false,
         )?,
 
         InstructionEnum::FinalizeGovernance {
@@ -124,6 +143,10 @@ pub fn process_instruction(
 
         InstructionEnum::FinalizeRebalance { log_level } => {
             finalize_rebalance(program_id, accounts, log_level)?
+        }
+
+        InstructionEnum::ResetUris { log_level } => {
+            reset_uris(program_id, accounts, log_level)?;
         }
 
         _ => {

@@ -67,11 +67,6 @@ impl AccountInfoHelpers for AccountInfo<'_> {
     }
 }
 
-pub fn assert_program_owned(_: &AccountInfo) -> ProgramResult {
-    colored_log!(0, 5, Red, "Error: Not implemented.");
-    panic!();
-}
-
 /// Get clock_data
 pub fn get_clock_data(
     iter: &mut Iter<AccountInfo>,
@@ -271,7 +266,7 @@ pub fn verify_nft_ownership(
     payer_account_info
         .assert_signer()
         .error_log("payer_account_info is not a signer")?;
-    let _nft_data = NftData::decode(nft_account_data_info)?;
+    let _nft_data = NftData::parse(nft_account_data_info, program_id)?;
 
     associated_token_account_info
         .assert_key_match(&get_associated_token_address(

@@ -13,6 +13,11 @@ use crate::state::{GovernanceType, VoteAuthorize, VoteInit, VoteState};
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
     MintNft {
+        switchboard_state_bump: u8,
+        permission_bump: u8,
+        log_level: u8,
+    },
+    ImprintRarity {
         log_level: u8,
     },
     Init {
@@ -24,8 +29,9 @@ pub enum InstructionEnum {
         is_validator_id_switchable: bool,
         unit_backing: u64,
         redemption_fee_duration: u32,
-        program_upgrade_threshold: u8,
+        proposal_quorum: u8,
         creator_royalties: u16,
+        governance_expiration_time: u32,
         rarities: Vec<u16>,
         rarity_names: Vec<String>,
         twitter_handle: String,
@@ -69,11 +75,14 @@ pub enum InstructionEnum {
     },
     InitGovernance {
         governance_type: GovernanceType,
+        title: String,
+        description: String,
         log_level: u8,
     },
     VoteGovernance {
         numeration: u32,
         vote: bool,
+        cnt: u8,
         log_level: u8,
     },
     FinalizeGovernance {

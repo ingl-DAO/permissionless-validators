@@ -13,59 +13,29 @@ import os
 
 
 class Constants:
-    INGL_CONFIG_SEED = b"ingl_config";
-    URIS_ACCOUNT_SEED = b"uris_account";
-    GENERAL_ACCOUNT_SEED = b"general_account";
-    INGL_NFT_COLLECTION_KEY = b"ingl_nft_collection";
-    INGL_MINT_AUTHORITY_KEY = b"ingl_mint_authority";
-    COLLECTION_HOLDER_KEY = b"collection_holder";
-    VOTE_ACCOUNT_KEY = b"vote_account";
-    AUTHORIZED_WITHDRAWER_KEY = b"authorized_withdrawer";
-    STAKE_ACCOUNT_KEY = b"stake_account";
-    PD_POOL_ACCOUNT_KEY = b"pd_pool_account";
-    NFT_ACCOUNT_CONST = b"nft_account";
-    INGL_PROGRAM_AUTHORITY_KEY = b"ingl_program_authority";
-    INGL_PROPOSAL_KEY = b"ingl_proposal";
-    VALIDATOR_ID_SEED = b"validator_ID___________________";
-    T_STAKE_ACCOUNT_KEY = b"t_stake_account_key";
-    T_WITHDRAW_KEY = b"t_withdraw_key";
+    INGL_CONFIG_SEED = "ingl_config";
+    URIS_ACCOUNT_SEED = "uris_account";
+    GENERAL_ACCOUNT_SEED = "general_account";
+    INGL_NFT_COLLECTION_KEY = "ingl_nft_collection";
+    INGL_MINT_AUTHORITY_KEY = "ingl_mint_authority";
+    COLLECTION_HOLDER_KEY = "collection_holder";
+    VOTE_ACCOUNT_KEY = "vote_account";
+    AUTHORIZED_WITHDRAWER_KEY = "authorized_withdrawer";
+    STAKE_ACCOUNT_KEY = "stake_account";
+    PD_POOL_ACCOUNT_KEY = "pd_pool_account";
+    NFT_ACCOUNT_CONST = "nft_account";
+    INGL_PROGRAM_AUTHORITY_KEY = "ingl_program_authority";
+    INGL_PROPOSAL_KEY = "ingl_proposal";
+    VALIDATOR_ID_SEED = "validator_ID___________________";
+    T_STAKE_ACCOUNT_KEY = "t_stake_account_key";
+    T_WITHDRAW_KEY = "t_withdraw_key";
 
     TEAM_ACCOUNT_KEY = PublicKey("Team111111111111111111111111111111111111111")
+    STAKE_PROGRAM_ID = PublicKey("Stake11111111111111111111111111111111111111")
+    STAKE_CONFIG_PROGRAM_ID = PublicKey("StakeConfig11111111111111111111111111111111")
+    VOTE_PROGRAM_ID = PublicKey("Vote111111111111111111111111111111111111111")
+    BPF_LOADER_UPGRADEABLE = PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
 
-ClassEnum = Enum(
-    "Ruby",
-    "Diamond",
-    "Sapphire",
-    "Emerald",
-    "Serendibite",
-    "Benitoite",
-
-    enum_name = "ClassEnum",
-)
-
-Rarity = Enum(
-    "Common",
-    "Uncommon",
-    "Rare",
-    "Exalted",
-    "Mythic",
-
-    enum_name = "Rarity",
-)
-
-def int_from_class_enum(class_enum: ClassEnum.enum) -> int:
-    if class_enum == ClassEnum.enum.Ruby():
-        return 0
-    elif class_enum == ClassEnum.enum.Diamond():
-        return 1
-    elif class_enum == ClassEnum.enum.Sapphire():
-        return 2
-    elif class_enum == ClassEnum.enum.Emerald():
-        return 3
-    elif class_enum == ClassEnum.enum.Serendibite():
-        return 4
-    elif class_enum == ClassEnum.enum.Benitoite():
-        return 5
 
 def keypair_from_json(filepath):
     keypair = Keypair.from_secret_key(json.load(open(filepath)))
@@ -74,51 +44,11 @@ def keypair_from_json(filepath):
 def pubkey_from_json(filepath): #Not Tested yet.
     return PublicKey(json.load(filepath.open()))
 
-GlobalGems = CStruct(
-    "validation_phrase"/ U32,
-    "counter" / U32,
-    "total_raised" / U64,
-    "pd_pool_total" / U64,
-    "delegated_total" / U64,
-    "dealloced_total" / U64,
-    "is_proposal_ongoing" / Bool,
-    "proposal_numeration" / U32,
-    "pending_delegation_total" / U64,
-    "upgrade_proposal_numeration" / U32,
-    "validator_list" / Vec(U8[32])
-)
-
-VoteRewards = CStruct(
-    "validation_phrase" / U32,
+VoteReward = CStruct(
     "epoch_number" / U64,
     "total_reward" / U64,
-    "total_stake" / U64,
-)
-
-InglVoteAccountData = CStruct(
-    "validation_phrase" / U32,
-    "total_delegated" / U64,
-    "last_withdraw_epoch" / U64,
-    "dealloced" / U64,
-    "rebalancing_data" / CStruct(
-        "pending_validator_rewards" / U64,
-        "unclaimed_validator_rewards" / U64,
-        "is_rebalancing_active" / Bool
-    ), # Field is also used to check if there is an ongoing rebalancing or not.
-    "validator_id" / U8[32], #To Reconsider.
-    "last_total_staked" / U64,
-    "is_t_stake_initialized" / Bool,
-    "pending_delegation_total" / U64,
-    "vote_rewards" / Vec(VoteRewards),
-)
-
-ValidatorProposal = CStruct(
-    "validation_phrase" / U32,
-    "validator_ids" / Vec(U8[32]),
-    "date_created" / U32,
-    "date_finalized" / Option(U32),
-    "votes" / Vec(U32),
-    "winner" / Option(U8[32]),
+    "total_stake" / U32,
+    "nft_holders_reward" / U64,
 )
 
 UpgradeVote = CStruct(
@@ -151,7 +81,27 @@ ValidatorConfig = CStruct(
     "discord_invite" / String,
     "website" / String,
 )
+RebalancingData = CStruct(
+    "pending_validator_rewards" / U64,
+    "unclaimed_validator_rewards" / U64,
+    "is_rebalancing_active" / Bool,
+)
 
+GeneralData = CStruct(
+    "validation_phrase" / U32,
+    "mint_numeration" / U32,
+    "pending_delegation_total" / U64,
+    "dealloced" / U64,
+    "total_delegated" / U32,
+    "last_withdraw_epoch" / U64,
+    "last_total_staked" / U64,
+    "is_t_stake_initialized" / Bool,
+    "proposal_numeration" / U32,
+    "last_feeless_redemption_date" / U32,
+    "last_validated_validator_id_proposal" / U32,
+    "rebalancing_data" / RebalancingData,
+    "vote_rewards" / Vec(VoteReward),
+)
 
 def private_key_from_json(filepath):
     return base58.b58encode(keypair_from_json(filepath).secret_key).decode()
@@ -265,46 +215,6 @@ async def sign_and_send_tx(tx: Transaction, client: AsyncClient, *args) -> SendT
         client._process_blockhash_resp(blockhash_resp, used_immediately=False)
     # print("finished")
     return txn_resp
-
-
-def parse_upgrade_proposal_id(proposal_pubkey: Optional[PublicKey], numeration: Optional[int], cnt: int) -> Tuple[PublicKey, int]:
-    proposal_account_pubkey = PublicKey(1)
-    proposal_numeration = 0
-    if numeration:
-        proposal_account_pubkey = PublicKey.find_program_address([bytes(Constants.UPGRADE_PROPOSAL_KEY, 'UTF-8'), (numeration).to_bytes(4,"big")], get_program_id())[0]
-        proposal_numeration = numeration
-        return proposal_account_pubkey, proposal_numeration
-    else:
-       while cnt > 0:
-            proposal_account_pubkey = PublicKey.find_program_address([bytes(Constants.UPGRADE_PROPOSAL_KEY, 'UTF-8'), (cnt-1).to_bytes(4,"big")], get_program_id())[0]
-            if proposal_account_pubkey == proposal_pubkey.public_key:
-                proposal_numeration = cnt
-                break
-            else:
-                cnt -=1
-    if proposal_account_pubkey != proposal_pubkey.public_key:
-        raise Exception("Proposal not found")
-    return proposal_account_pubkey, proposal_numeration
-
-def parse_validator_proposal_id(proposal_pubkey: Optional[PublicKey], numeration: Optional[int], cnt: int) -> Tuple[PublicKey, int]:
-    proposal_account_pubkey = PublicKey(1)
-    proposal_numeration = 0
-    if numeration:
-        proposal_account_pubkey = PublicKey.find_program_address([bytes(Constants.VOTE_ACCOUNT_KEY, 'UTF-8'), (numeration).to_bytes(4,"big")], get_program_id())[0]
-        proposal_numeration = numeration
-        return proposal_account_pubkey, proposal_numeration
-    else:
-       while cnt > 0:
-            proposal_account_pubkey = PublicKey.find_program_address([bytes(Constants.VOTE_ACCOUNT_KEY, 'UTF-8'), (cnt-1).to_bytes(4,"big")], get_program_id())[0]
-            if proposal_account_pubkey == proposal_pubkey.public_key:
-                proposal_numeration = cnt
-                break
-            else:
-                cnt -=1
-    if proposal_account_pubkey != proposal_pubkey.public_key:
-        raise Exception("Proposal not found")
-    return proposal_account_pubkey, proposal_numeration
-
 
 def set_config(key: str, value: str):
     file_dir = f"{os.path.expanduser('~')}/.config/solana/ingl/"

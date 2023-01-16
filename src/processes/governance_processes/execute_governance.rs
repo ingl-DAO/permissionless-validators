@@ -68,9 +68,9 @@ pub fn execute_governance(
     let clock_data =
         Clock::from_account_info(sysvar_clock_info).error_log("failed to get clock data")?;
 
-    let mut governance_data = GovernanceData::decode(proposal_account_info)?;
-    let mut config_data = Box::new(ValidatorConfig::decode(ingl_config_account)?);
-    let general_data = Box::new(GeneralData::decode(general_account_info)?);
+    let mut governance_data = GovernanceData::parse(proposal_account_info, program_id)?;
+    let mut config_data = Box::new(ValidatorConfig::parse(ingl_config_account, program_id)?);
+    let general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
 
     if governance_data.is_still_ongoing == true {
         Err(InglError::TooEarly.utilize("This proposal is currently still ongoing."))?
@@ -83,8 +83,24 @@ pub fn execute_governance(
             .clone()
             .date_finalized
             .error_log("Proposal must be finalized")?
-            + 86400 * 30)
-    {}
+            + GOVERNANCE_SAFETY_LEEWAY)
+    {
+        match governance_data.clone().governance_type {
+            GovernanceType::ProgramUpgrade { .. } => {
+                Err(InglError::TooEarly.utilize("This proposal is not ready to be executed yet"))?
+            }
+            GovernanceType::ConfigAccount(config_governance_type) => {
+                match config_governance_type {
+                    ConfigAccountType::InitialRedemptionFee(_) => Err(InglError::TooEarly
+                        .utilize("This proposal is not ready to be executed yet"))?,
+                    ConfigAccountType::RedemptionFeeDuration(_) => Err(InglError::TooEarly
+                        .utilize("This proposal is not ready to be executed yet"))?,
+                    _ => (),
+                }
+            }
+            _ => (),
+        }
+    }
 
     match governance_data.did_proposal_pass {
         Some(x) => {
@@ -262,7 +278,9 @@ pub fn handle_vote_account_governance_change(
             let new_validator_id_info = next_account_info(account_info_iter)?;
             new_validator_id_info
                 .assert_key_match(&new_validator_id)
-                .error_log("Error @ New Validator ID address verification")?;
+                .error_log(
+                    "Error @ New Validator ID address verification. new Validator id must be a Signer and last account",
+                )?;
             sysvar_clock_info
                 .assert_key_match(&sysvar::clock::id())
                 .error_log("Error @ Clock address verification")?;

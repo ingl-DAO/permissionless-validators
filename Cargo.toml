@@ -4,26 +4,24 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-solana-program = "1.10.41"
+solana-program = "1.13.5"
 borsh = "0.9.3"
-spl-token = "3.3.0"
+spl-token = "3.2.0"
 borsh-derive = "0.9.3"
-spl-associated-token-account = "1.0.5"
-mpl-token-metadata = { version = "1.6.1", features = ["no-entrypoint"] }
+spl-associated-token-account = "1.1.1"
+mpl-token-metadata = { version = "1.4.3", features = ["no-entrypoint"] }
 num-traits = "0.2.15"
-anchor-lang = "0.25.0"
-anchor-spl = "0.25.0"
-switchboard-v2 = "0.1.16"
-serde =  "1.0.147"
+anchor-lang = "0.26.0"
+anchor-spl = "0.26.0"
+switchboard-v2 = { version = "0.1.20", features = ["devnet"] }
+serde = "1.0.147"
 ingl_macros = { path = "./ingl_macros" }
 bincode = "1.3.3"
 
 [dev-dependencies]
+
 # rand = "0.8.5"
-
-
 [profile.release]
 overflow-checks = true
 
@@ -43,9 +41,9 @@ build-deploy-address-local = "cargo build-bpf && solana program deploy --program
 build-deploy-local = "cargo build-bpf && solana program deploy ./target/deploy/permissionles_validator.so -u localhost"
 buffer-deploy-local = "solana program write-buffer --buffer ./deploy/buffer.json ./target/deploy/permissionles_validator.so -u localhost"
 #Build and deploy to a buffer address to a local cluster, then set the authority to the pda of the program.
-bdlb = "cargo build-bpf && cargo-x new-buffer-address && cargo-x buffer-deploy-local && python python/buffer_changes.py localhost" 
+bdlb = "cargo build-bpf && cargo-x new-buffer-address && cargo-x buffer-deploy-local && python python/buffer_changes.py localhost"
 #Build and deploy to a buffer address to devnet, then set the authority to pda of the program.
-bddb = "cargo build-bpf && cargo-x new-buffer-address && cargo-x buffer-deploy-devnet && python python/buffer_changes.py devnet" 
+bddb = "cargo build-bpf && cargo-x new-buffer-address && cargo-x buffer-deploy-devnet && python python/buffer_changes.py devnet"
 bda = "cargo-x build-deploy-address"
 bdl = "cargo-x build-deploy-local"
 bdla = "cargo-x build-deploy-address-local"

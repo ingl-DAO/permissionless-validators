@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use crate::{
     colored_log,
     error::InglError,
-    utils::{assert_program_owned, AccountInfoHelpers, ResultExt},
+    utils::{AccountInfoHelpers, ResultExt},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use ingl_macros::Validate;
@@ -13,6 +13,7 @@ use solana_program::{
     account_info::AccountInfo,
     borsh::try_from_slice_unchecked,
     entrypoint::ProgramResult,
+    msg,
     native_token::LAMPORTS_PER_SOL,
     program_error::ProgramError,
     pubkey::Pubkey,
@@ -21,10 +22,13 @@ use solana_program::{
 };
 
 use crate::state::LogColors::*;
+
+use self::constants::CUMMULATED_RARITY;
 pub const LOG_LEVEL: u8 = 5;
 
 pub mod constants {
-
+    pub const CUMMULATED_RARITY: u16 = 10000;
+    pub const INGL_VRF_MAX_RESULT: u64 = 10000;
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
     pub const GENERAL_ACCOUNT_VAL_PHRASE: u32 = 836_438_471;
@@ -44,9 +48,14 @@ pub mod constants {
     pub const NFT_ACCOUNT_CONST: &[u8] = b"nft_account";
     pub const INGL_PROGRAM_AUTHORITY_KEY: &[u8] = b"ingl_program_authority";
     pub const INGL_PROPOSAL_KEY: &[u8] = b"ingl_proposal";
+    pub const VRF_STATE_KEY: &[u8] = b"ingl_vrf_state_key";
     pub const VALIDATOR_ID_SEED: &[u8] = b"validator_ID___________________";
     pub const T_STAKE_ACCOUNT_KEY: &[u8] = b"t_stake_account_key";
     pub const T_WITHDRAW_KEY: &[u8] = b"t_withdraw_key";
+
+    pub const FEELESS_REDEMPTION_PERIOD: u32 = 86400 * 30; // 1 month
+    pub const GOVERNANCE_EXECUTION_THRESHOLD: f64 = 4.0 / 5.0; // 80%
+    pub const GOVERNANCE_SAFETY_LEEWAY: u32 = 86400 * 30; // 1 month
 
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
@@ -75,12 +84,14 @@ pub struct ValidatorConfig {
     pub max_primary_stake: u64,
     pub nft_holders_share: u8,
     pub initial_redemption_fee: u8,
-    pub unit_stake: u64,
+    pub unit_backing: u64,
     pub redemption_fee_duration: u32,
     pub proposal_quorum: u8,
     pub creator_royalties: u16,
     pub commission: u8,
     pub validator_id: Pubkey,
+    pub governance_expiration_time: u32,
+    pub collection_uri: String,
     pub validator_name: String,
     pub twitter_handle: String,
     pub discord_invite: String,
@@ -89,9 +100,10 @@ pub struct ValidatorConfig {
 
 impl ValidatorConfig {
     pub fn get_space(&self) -> usize {
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4  = 79
-        79 + self.validator_name.len()
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4 + 4 + 4  = 87
+        87 + self.collection_uri.len()
+            + self.validator_name.len()
             + self.twitter_handle.len()
             + self.discord_invite.len()
             + self.website.len()
@@ -116,7 +128,7 @@ impl ValidatorConfig {
             Err(InglError::InvalidConfigData
                 .utilize("Initial redemption fee must be less than 25%"))?
         }
-        if self.unit_stake < get_min_stake_account_lamports() {
+        if self.unit_backing < get_min_stake_account_lamports() {
             Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1 Sol"))?
         }
         if self.max_primary_stake < get_min_stake_account_lamports() {
@@ -155,6 +167,18 @@ impl ValidatorConfig {
         if self.website.len() > 64 {
             Err(InglError::InvalidConfigData.utilize("Website must be less than 32 characters"))?
         }
+        if self.governance_expiration_time < 86400 * 35 {
+            Err(InglError::InvalidConfigData
+                .utilize("Governance expiration time must be greater than 35 days"))?
+        }
+        if self.governance_expiration_time > 86400 * 365 {
+            Err(InglError::InvalidConfigData
+                .utilize("Governance expiration time must be less than 1 year"))?
+        }
+        if self.collection_uri.len() > 75 {
+            Err(InglError::InvalidConfigData
+                .utilize("Collection URI must be less than 64 characters"))?
+        }
         Ok(())
     }
 
@@ -169,6 +193,8 @@ impl ValidatorConfig {
         creator_royalties: u16,
         commission: u8,
         validator_id: Pubkey,
+        governance_expiration_time: u32,
+        collection_uri: String,
         validator_name: String,
         twitter_handle: String,
         discord_invite: String,
@@ -180,12 +206,14 @@ impl ValidatorConfig {
             max_primary_stake,
             nft_holders_share,
             initial_redemption_fee,
-            unit_stake: unit_backing,
+            unit_backing,
             redemption_fee_duration,
             proposal_quorum,
             creator_royalties,
             commission,
             validator_id,
+            governance_expiration_time,
+            collection_uri,
             validator_name,
             twitter_handle,
             discord_invite,
@@ -194,6 +222,22 @@ impl ValidatorConfig {
         i.validate_data()
             .error_log("Error @ Config Data Validation")?;
         Ok(i)
+    }
+    pub fn get_redeem_fee(&self, age: u32) -> u64 {
+        if age > self.redemption_fee_duration {
+            return 0;
+        }
+
+        ((((self.initial_redemption_fee as u64).pow(2)
+            * ((self.redemption_fee_duration as u64).pow(2) - (age as u64).pow(2)))
+            as f64)
+            .sqrt() as u64)
+            .checked_div(self.redemption_fee_duration as u64)
+            .unwrap()
+            .checked_mul(self.unit_backing)
+            .unwrap()
+            .checked_div(100)
+            .unwrap()
     }
 }
 
@@ -211,7 +255,7 @@ pub struct UrisAccount {
 }
 impl UrisAccount {
     pub fn new(rarities: Vec<u16>, names: Vec<String>) -> Result<Self, ProgramError> {
-        if rarities.iter().sum::<u16>() != 10000 {
+        if rarities.iter().sum::<u16>() != CUMMULATED_RARITY {
             Err(InglError::InvalidUrisAccountData.utilize("Rarities must sum to 10000"))?
         }
         let mut new_rarities = Vec::new();
@@ -226,15 +270,16 @@ impl UrisAccount {
             }
         }
 
-        let i = Self {
+        let uri_account = Self {
             validation_phrase: constants::URIS_ACCOUNT_VAL_PHRASE,
             rarity_names: names,
             rarities: new_rarities,
             uris: Vec::new(),
         };
-        i.validate_data()
+        uri_account
+            .validate_data()
             .error_log("Error @ Uris Account Data Validation")?;
-        Ok(i)
+        Ok(uri_account)
     }
 
     pub fn validate_data(&self) -> ProgramResult {
@@ -254,27 +299,22 @@ impl UrisAccount {
         Ok(())
     }
 
-    pub fn set_uri(&mut self, rarity: u8, uris: Vec<String>) -> Result<usize, ProgramError> {
+    pub fn set_uri(&mut self, rarity: u8, uris: Vec<String>) -> Result<(), ProgramError> {
+        msg!("Rarity: {}", rarity);
         if rarity as usize > self.rarities.len() {
             Err(InglError::InvalidUrisAccountData.utilize("Rarity is out of bounds"))?
         }
-        if uris.len() == 0 {
-            Err(InglError::InvalidUrisAccountData.utilize("Uris vector is empty"))?
-        }
-        let mut space = 0;
-        for i in uris.iter() {
-            space += i.len() + 4;
-        }
-        if self.uris.len() == rarity.into() {
+        
+        if self.uris.len() == rarity as usize {
             self.uris.push(uris);
-            space += 4;
         } else {
             self.uris[rarity as usize].extend(uris);
         }
-        Ok(space)
+        Ok(())
     }
 
-    pub fn get_uri(&self, seed: u16) -> (String, u8) {
+    pub fn get_uri(&self, mut seed: u16) -> (String, u8) {
+        seed = seed % 10000;
         let ind = self.rarities.iter().position(|x| *x > seed).unwrap();
         (
             self.uris[ind][seed as usize % self.uris[ind].len()].clone(),
@@ -289,6 +329,21 @@ impl UrisAccount {
             uris: Vec::new(),
         }
     }
+    pub fn get_space(&self) -> usize {
+        let mut space = 4;
+        space += self.rarities.len() * 2 + 4;
+        self.rarity_names.iter().for_each(|x| {
+            space += x.len() + 4;
+        });
+        space += 8;
+        for i in self.uris.iter() {
+            space += 4;
+            for j in i.iter() {
+                space += j.len() + 4;
+            }
+        }
+        space
+    }
 }
 
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]
@@ -299,15 +354,15 @@ pub struct VoteReward {
     pub epoch_number: u64,
     /// This is the amount of rewards earned.
     pub total_reward: u64,
-    /// This is the total primary staked nft count of the vote account.
-    pub total_stake: u32,
+    /// This is the total primary staked nft sol of the vote account.
+    pub total_stake: u64,
     /// This is the total reward that will be distributed to primary stakers.
     pub nft_holders_reward: u64,
 }
 
 impl VoteReward {
     pub fn get_space() -> usize {
-        28
+        32
     }
 }
 
@@ -345,7 +400,7 @@ pub struct GeneralData {
     pub mint_numeration: u32,
     pub pending_delegation_total: u64,
     pub dealloced: u64,
-    pub total_delegated: u32,
+    pub total_delegated: u64,
     pub last_withdraw_epoch: u64,
     pub last_total_staked: u64,
     pub is_t_stake_initialized: bool,
@@ -357,9 +412,9 @@ pub struct GeneralData {
 }
 impl GeneralData {
     pub fn get_space(&self) -> usize {
-        // 4 + 4 + 8 + 8 + 4 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len() + 4)
-        // 4 + 4 + 8 + 8 + 4 + 8 + 8 + 1 + 4 + 4 + 4 + 4 = 60
-        61 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len())
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len() + 4)
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + 4 = 65
+        65 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len())
     }
 }
 
@@ -394,7 +449,7 @@ pub enum FundsLocation {
 //Creation Size:
 pub struct NftData {
     pub validation_phrase: u32,
-    pub rarity: u8,
+    pub rarity: Option<u8>,
     pub funds_location: FundsLocation,
     pub numeration: u32,
     pub date_created: u32,
@@ -408,6 +463,28 @@ impl NftData {
         // 4 + 1 + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
         // 4 + 1 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
         40 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
+    }
+}
+
+#[derive(BorshDeserialize, Debug, Eq, PartialEq, Hash, BorshSerialize, Clone)]
+pub enum Rarity {
+    Common,
+    Uncommon,
+    Rare,
+    Exalted,
+    Mythic,
+}
+
+impl Rarity {
+    pub fn from_u8(rarity: u8) -> Self {
+        match rarity {
+            0 => Self::Common,
+            1 => Self::Uncommon,
+            2 => Self::Rare,
+            3 => Self::Exalted,
+            4 => Self::Mythic,
+            _ => panic!("Invalid Rarity"),
+        }
     }
 }
 
@@ -519,6 +596,8 @@ pub struct GovernanceData {
     pub date_finalized: Option<u32>,
     pub did_proposal_pass: Option<bool>,
     pub is_proposal_executed: bool,
+    pub title: String,
+    pub description: String,
     pub votes: BTreeMap<u32, bool>,
     pub governance_type: GovernanceType,
 }
@@ -526,6 +605,8 @@ impl GovernanceData {
     pub fn get_space(&self) -> usize {
         let mut space = 4 + 4 + 1 + 4;
         space += self.votes.len() * 5;
+        space += 4 + self.title.len();
+        space += 4 + self.description.len();
 
         space += 1 + match self.governance_type.clone() {
             GovernanceType::ConfigAccount(tmp) => match tmp {
@@ -552,6 +633,12 @@ impl GovernanceData {
     }
 
     pub fn verify(&self) -> ProgramResult {
+        if self.title.len() > 100 {
+            Err(InglError::InvalidData.utilize("Title can't be more than 150 characters"))?
+        }
+        if self.description.len() > 350 {
+            Err(InglError::InvalidData.utilize("Description can't be more than 1000 characters"))?
+        }
         self.governance_type.verify()
     }
 }
@@ -604,4 +691,14 @@ pub enum UpgradeableLoaderState {
         // The raw program data follows this serialized structure in the
         // account's data.
     },
+}
+
+#[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize, Default)]
+pub struct VrfClientState {
+    pub bump: u8,
+    pub max_result: u64,
+    pub result_buffer: [u8; 32],
+    pub result: u128,
+    pub timestamp: i64,
+    pub vrf: Pubkey,
 }

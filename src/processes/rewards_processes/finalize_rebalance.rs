@@ -55,8 +55,8 @@ pub fn finalize_rebalance(
     config_account_info
         .assert_owner(program_id)
         .error_log("failed to assert config account ownership")?;
-    let mut general_data = Box::new(GeneralData::decode(general_account_info)?);
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info)?);
+    let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
 
     sysvar_stake_history_info
         .assert_key_match(&sysvar::stake_history::id())

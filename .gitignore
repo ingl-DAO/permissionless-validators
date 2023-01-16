@@ -1,3 +1,4 @@
 target/
 deploy/
 __pycache__/
+Cargo.lock

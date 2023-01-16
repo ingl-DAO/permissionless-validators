@@ -64,12 +64,13 @@ pub fn create_vote_account(
         .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("Error @ general_account seed assertion")?;
 
-    let config_data = Box::new(ValidatorConfig::decode(config_account_info))
+    log!(log_level, 0, "Collecting config and general data");
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id))
         .error_log("Error @ config_account data decoding")?;
-    let mut general_data = Box::new(GeneralData::decode(general_account_info))
+    let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id))
         .error_log("Error @ general_account data decoding")?;
 
-    let (expected_vote_pubkey, expected_vote_pubkey_bump) = vote_account_info
+    let (_expected_vote_pubkey, expected_vote_pubkey_bump) = vote_account_info
         .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
         .error_log("failed to assert pda input to vote_account_info")?;
     let (authorized_withdrawer, _authorized_withdrawer_nonce) =
@@ -78,8 +79,9 @@ pub fn create_vote_account(
     let (_expected_stake_key, expected_stake_bump) = stake_account_info
         .assert_seed(program_id, &[STAKE_ACCOUNT_KEY.as_ref()])
         .error_log("failed to assert pda input to stake_account_info")?;
-    
-    let (pd_pool_account_key, _pd_bump) = Pubkey::find_program_address(&[PD_POOL_ACCOUNT_KEY.as_ref()], program_id);
+
+    let (pd_pool_account_key, _pd_bump) =
+        Pubkey::find_program_address(&[PD_POOL_ACCOUNT_KEY.as_ref()], program_id);
 
     log!(log_level, 0, "Done with main accounts assertions");
     let clock_data = get_clock_data_from_account(sysvar_clock_info)
@@ -157,11 +159,7 @@ pub fn create_vote_account(
             &stake::program::id(),
         ),
         &[validator_info.clone(), stake_account_info.clone()],
-        &[&[
-            STAKE_ACCOUNT_KEY.as_ref(),
-            expected_vote_pubkey.as_ref(),
-            &[expected_stake_bump],
-        ]],
+        &[&[STAKE_ACCOUNT_KEY.as_ref(), &[expected_stake_bump]]],
     )
     .error_log("failed to create stake_account @system_program invoke")?;
     log!(
