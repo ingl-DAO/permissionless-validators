@@ -3,11 +3,10 @@ use std::collections::BTreeMap;
 use crate::{
     error::InglError,
     log,
-    state::{constants::*, FundsLocation, GeneralData, NftData, ValidatorConfig, VrfClientState},
+    state::{constants::*, FundsLocation, GeneralData, Network, NftData, ValidatorConfig},
     utils::{get_clock_data, get_rent_data_from_account, AccountInfoHelpers, ResultExt},
 };
-use anchor_lang::prelude::{Account as AnchorAccount, ProgramError};
-use anchor_spl::token::TokenAccount;
+use anchor_lang::{prelude::ProgramError, AnchorDeserialize};
 use borsh::BorshSerialize;
 use mpl_token_metadata::{
     self as metaplex,
@@ -21,18 +20,15 @@ use solana_program::{
     program_pack::Pack,
     pubkey::Pubkey,
     system_instruction, system_program,
-    sysvar::{self, recent_blockhashes},
+    sysvar,
 };
 
 use spl_associated_token_account::{get_associated_token_address, *};
 use spl_token::{self, error::TokenError, state::Account};
-use switchboard_v2::{VrfAccountData, VrfRequestRandomness, SWITCHBOARD_PROGRAM_ID};
 
 pub fn process_mint_nft(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    switchboard_state_bump: u8,
-    permission_bump: u8,
     log_level: u8,
     clock_is_from_account: bool,
 ) -> ProgramResult {
@@ -55,19 +51,6 @@ pub fn process_mint_nft(
     let ingl_config_account_info = next_account_info(account_info_iter)?;
     let uris_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
-
-    let nft_vrf_account_info = next_account_info(account_info_iter)?;
-    let nft_vrf_state_account_info = next_account_info(account_info_iter)?;
-
-    let payer_wallet_account_info = next_account_info(account_info_iter)?;
-    let oracle_queue_account_info = next_account_info(account_info_iter)?;
-    let queue_authority_account_info = next_account_info(account_info_iter)?;
-    let data_buffer_account_info = next_account_info(account_info_iter)?;
-    let permission_account_info = next_account_info(account_info_iter)?;
-    let escrow_account_info = next_account_info(account_info_iter)?;
-    let program_state_account_info = next_account_info(account_info_iter)?;
-    let switchboard_program_account_info = next_account_info(account_info_iter)?;
-    let recent_blockhashes_account_info = next_account_info(account_info_iter)?;
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
     let rent_data = get_rent_data_from_account(sysvar_rent_account_info)?;
@@ -435,6 +418,7 @@ pub fn process_mint_nft(
         date_created: current_timestamp,
         numeration: general_data.mint_numeration,
         rarity: None,
+        rarity_seed_time: None,
         funds_location: FundsLocation::Delegated,
         all_withdraws: Vec::new(),
         all_votes: BTreeMap::new(),
@@ -471,256 +455,37 @@ pub fn process_mint_nft(
         .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
         .error_log("Error @ general_data serialization")?;
 
-    let create_vrf_accounts = &[
-        payer_account_info.clone(),
-        nft_vrf_account_info.clone(),
-        nft_vrf_state_account_info.clone(),
-        sysvar_rent_account_info.clone(),
-    ];
-    create_vrf_state_account(program_id, create_vrf_accounts, 0, log_level)
-        .error_log("error caling @create_vrf_state_account ")?;
-
-    let request_randomness_accounts = &[
-        payer_account_info.clone(),
-        payer_wallet_account_info.clone(),
-        nft_vrf_account_info.clone(),
-        oracle_queue_account_info.clone(),
-        queue_authority_account_info.clone(),
-        data_buffer_account_info.clone(),
-        permission_account_info.clone(),
-        escrow_account_info.clone(),
-        program_state_account_info.clone(),
-        switchboard_program_account_info.clone(),
-        nft_vrf_state_account_info.clone(),
-        recent_blockhashes_account_info.clone(),
-        spl_token_program_account_info.clone(),
-    ];
-    request_randomness(
-        program_id,
-        request_randomness_accounts,
-        switchboard_state_bump,
-        permission_bump,
-        log_level,
-    )
-    .error_log("error calling @create_randomness")?;
-
     let freeze_nft_accounts = &[
         payer_account_info.clone(),
+        nft_account_info.clone(),
         nft_mint_account_info.clone(),
         associated_token_account_info.clone(),
         mint_authority_account_info.clone(),
         nft_edition_account_info.clone(),
     ];
-    freeze_nft_account(program_id, freeze_nft_accounts, log_level)
+    init_imprint_rarity(program_id, freeze_nft_accounts, log_level, false)
         .error_log("error calling @freeze_nft_account")?;
 
     log!(log_level, 4, "nft account created!!!");
     Ok(())
 }
 
-fn create_vrf_state_account(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    max_result: u64,
-    log_level: u8,
-) -> ProgramResult {
-    log!(log_level, 4, "Init VRF account...");
-    let account_info_iter = &mut accounts.iter();
-    let payer_account_info = next_account_info(account_info_iter)?;
-    let nft_vrf_account_info = next_account_info(account_info_iter)?;
-    let nft_vrf_state_account_info = next_account_info(account_info_iter)?;
-    let sysvar_rent_account_info = next_account_info(account_info_iter)?;
-
-    payer_account_info
-        .assert_signer()
-        .error_log("@payer_account_info")?;
-    nft_vrf_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@nft_vrf_account_info")?;
-
-    let (nft_vrf_state_key, nft_vrf_state_bump) = nft_vrf_state_account_info
-        .assert_seed(
-            program_id,
-            &[VRF_STATE_KEY, nft_vrf_account_info.key.as_ref()],
-        )
-        .error_log("@nft_vrf_state_account")?;
-
-    if max_result > INGL_VRF_MAX_RESULT {
-        Err(InglError::MaxResultExceedsMaximum.utilize("VRF max result"))?;
-    }
-    let nft_vrf_data = VrfAccountData::new(&nft_vrf_account_info)
-        .error_log("failed to load @nft_vrf_account_info data")?;
-    if nft_vrf_state_key != nft_vrf_data.authority {
-        Err(InglError::InvalidVrfAuthorityError.utilize("@nft_vrf_autority"))?;
-    }
-
-    let space = std::mem::size_of::<VrfClientState>() + 8;
-    let rent_lamports =
-        get_rent_data_from_account(sysvar_rent_account_info)?.minimum_balance(space);
-
-    invoke_signed(
-        &system_instruction::create_account(
-            &payer_account_info.key,
-            &nft_vrf_state_key,
-            rent_lamports,
-            space as u64,
-            program_id,
-        ),
-        &[
-            payer_account_info.clone(),
-            nft_vrf_state_account_info.clone(),
-        ],
-        &[&[
-            VRF_STATE_KEY.as_ref(),
-            nft_vrf_account_info.key.as_ref(),
-            &[nft_vrf_state_bump],
-        ]],
-    )
-    .error_log("Failed to create ingl VRF account @system_program invoke")?;
-
-    let mut nft_vrf_state = VrfClientState::default();
-    nft_vrf_state.bump = nft_vrf_state_bump;
-    nft_vrf_state.vrf = *nft_vrf_account_info.key;
-    if max_result == 0 {
-        nft_vrf_state.max_result = INGL_VRF_MAX_RESULT
-    } else {
-        nft_vrf_state.max_result = max_result
-    }
-
-    nft_vrf_state
-        .serialize(&mut &mut nft_vrf_state_account_info.data.borrow_mut()[..])
-        .error_log("Failed to serialized VRF account data")?;
-
-    drop(payer_account_info);
-    drop(nft_vrf_account_info);
-    drop(nft_vrf_state_account_info);
-    drop(sysvar_rent_account_info);
-
-    log!(log_level, 4, "Init VRF account !!!");
-    Ok(())
-}
-
-fn request_randomness(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    switchboard_state_bump: u8,
-    permission_bump: u8,
-    log_level: u8,
-) -> ProgramResult {
-    log!(log_level, 4, "requesting randomness....");
-    let account_info_iter = &mut accounts.iter();
-    let payer_account_info = next_account_info(account_info_iter)?;
-    let payer_wallet_account_info = next_account_info(account_info_iter)?;
-    let nft_vrf_account_info = next_account_info(account_info_iter)?;
-    let oracle_queue_account_info = next_account_info(account_info_iter)?;
-    let queue_authority_account_info = next_account_info(account_info_iter)?;
-    let data_buffer_account_info = next_account_info(account_info_iter)?;
-    let permission_account_info = next_account_info(account_info_iter)?;
-    let escrow_account_info = next_account_info(account_info_iter)?;
-    let program_state_account_info = next_account_info(account_info_iter)?;
-    let switchboard_program_account_info = next_account_info(account_info_iter)?;
-    let nft_vrf_state_account_info = next_account_info(account_info_iter)?;
-    let recent_blockhashes_account_info = next_account_info(account_info_iter)?;
-    let token_program_account_info = next_account_info(account_info_iter)?;
-
-    if switchboard_program_account_info.executable == false {
-        Err(InglError::InvalidData.utilize("@switchboard_program_account_info must be executable"))?
-    }
-
-    payer_account_info
-        .assert_signer()
-        .error_log("@payer_authority_account_info")?;
-    // payer_wallet_account_info
-    //     .assert_owner(&spl_token::id())
-    //     .error_log("@payer_wallet_account_info")?; //TODO comme to this check
-
-    nft_vrf_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@nft_vrf_account_info")?;
-    oracle_queue_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@oracle_queue_account_info")?;
-    program_state_account_info
-        .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-        .error_log("@program_state_account_info")?;
-
-    let switchboard_vrf = nft_vrf_account_info.clone();
-    let nft_vrf_data = VrfAccountData::new(&switchboard_vrf)
-        .error_log("failed to load @nft_vrf_account_info data")?;
-
-    escrow_account_info
-        .assert_key_match(&nft_vrf_data.escrow)
-        .error_log("@escrow_account_info, @nft_vrf_account_info")?;
-    drop(nft_vrf_data);
-    drop(switchboard_vrf);
-
-    recent_blockhashes_account_info
-        .assert_key_match(&recent_blockhashes::ID)
-        .error_log("@recent_blockhashes_account_info")?;
-    token_program_account_info
-        .assert_key_match(&spl_token::id())
-        .error_log("@token_program_account_info")?;
-
-    let (_nft_vrf_state_key, nft_vrf_state_bump) = nft_vrf_state_account_info
-        .assert_seed(
-            program_id,
-            &[VRF_STATE_KEY, nft_vrf_account_info.key.as_ref()],
-        )
-        .error_log("@nft_vrf_state_account")?;
-
-    let escrow_token_account: AnchorAccount<TokenAccount> = AnchorAccount::try_from(&escrow_account_info)
-        .error_log("Failed to get Account<TokenAccount> @escrow_account_info")?;
-    let payer_wallet_token_account: AnchorAccount<TokenAccount>= AnchorAccount::try_from(&payer_wallet_account_info)
-        .error_log("Failed to get Account<TokenAccount> @payer_authority_account_info")?;
-
-    let vrf_request_randomness = VrfRequestRandomness {
-        authority: nft_vrf_state_account_info.clone(),
-        vrf: nft_vrf_account_info.clone(),
-        oracle_queue: oracle_queue_account_info.clone(),
-        queue_authority: queue_authority_account_info.clone(),
-        data_buffer: data_buffer_account_info.clone(),
-        permission: permission_account_info.clone(),
-        escrow: escrow_token_account.clone(),
-        payer_wallet: payer_wallet_token_account.clone(),
-        payer_authority: payer_account_info.clone(),
-        recent_blockhashes: recent_blockhashes_account_info.clone(),
-        program_state: program_state_account_info.clone(),
-        token_program: token_program_account_info.clone(),
-    };
-
-    log!(log_level, 0, "created VrfRequestRandomness accounts");
-    let state_seeds: &[&[&[u8]]] = &[&[
-        &VRF_STATE_KEY,
-        &nft_vrf_account_info.key.as_ref(),
-        &[nft_vrf_state_bump],
-    ]];
-
-    log!(log_level, 0, "requesting vrf randomness...");
-    vrf_request_randomness
-        .invoke_signed(
-            switchboard_program_account_info.clone(),
-            switchboard_state_bump,
-            permission_bump,
-            state_seeds,
-        )
-        .error_log("error on calling vrf_request_randomness @invoke")?;
-
-    log!(log_level, 4, "requested randomness !!!");
-    Ok(())
-}
-
-fn freeze_nft_account(
+fn init_imprint_rarity(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     log_level: u8,
+    clock_is_from_account: bool,
 ) -> ProgramResult {
     log!(log_level, 4, "Freeze nft account...");
     let account_info_iter = &mut accounts.iter();
     let payer_account_info = next_account_info(account_info_iter)?;
+    let nft_account_info = next_account_info(account_info_iter)?;
     let nft_mint_account_info = next_account_info(account_info_iter)?;
     let associated_token_account_info = next_account_info(account_info_iter)?;
     let freeze_authority_account_info = next_account_info(account_info_iter)?;
     let nft_edition_account_info = next_account_info(account_info_iter)?;
+
+    let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
 
     log!(log_level, 0, "Done with account collection ...");
 
@@ -758,6 +523,13 @@ fn freeze_nft_account(
         Err(TokenError::AccountFrozen)?
     }
 
+    let mut nft_data = NftData::deserialize(&mut &nft_account_info.data.borrow()[..])
+        .error_log("Error: @gem_account_info data decoding")?;
+
+    if let Some(_) = nft_data.rarity_seed_time {
+        Err(ProgramError::InvalidAccountData).error_log("@nft_data rarity seed time already set")?
+    }
+
     log!(log_level, 0, "Done with account assertions ...");
 
     let mpl_token_metadata_program_id = mpl_token_metadata::id();
@@ -772,6 +544,17 @@ fn freeze_nft_account(
             ],
         )
         .error_log("Error: @edition_account_info")?;
+
+    nft_data.rarity_seed_time = match NETWORK {
+        Network::Devnet => Some(clock_data.unix_timestamp as u32 + DEV_PRICE_TIME_INTERVAL as u32),
+        Network::Mainnet => {
+            Some(clock_data.unix_timestamp as u32 + MAIN_PRICE_TIME_INTERVAL as u32)
+        }
+        Network::LocalTest => {
+            Some(clock_data.unix_timestamp as u32 + LOCALTEST_PRICE_TIME_INTERVAL as u32)
+        }
+    };
+    nft_data.serialize(&mut &mut nft_account_info.data.borrow_mut()[..])?;
 
     log!(log_level, 2, "Freezing the associated token account ...");
     invoke_signed(

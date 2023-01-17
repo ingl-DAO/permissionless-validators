@@ -1,5 +1,5 @@
 #![allow(unused_parens)]
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, str::FromStr};
 
 use crate::{
     colored_log,
@@ -26,7 +26,15 @@ use crate::state::LogColors::*;
 use self::constants::CUMMULATED_RARITY;
 pub const LOG_LEVEL: u8 = 5;
 
+pub enum Network {
+    Devnet,
+    Mainnet,
+    LocalTest,
+}
+
 pub mod constants {
+    use super::Network;
+
     pub const CUMMULATED_RARITY: u16 = 10000;
     pub const INGL_VRF_MAX_RESULT: u64 = 10000;
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
@@ -56,6 +64,45 @@ pub mod constants {
     pub const FEELESS_REDEMPTION_PERIOD: u32 = 86400 * 30; // 1 month
     pub const GOVERNANCE_EXECUTION_THRESHOLD: f64 = 4.0 / 5.0; // 80%
     pub const GOVERNANCE_SAFETY_LEEWAY: u32 = 86400 * 30; // 1 month
+
+    pub const DEV_NUM_FEEDS: usize = 20;
+    pub const DEV_PRICE_TIME_INTERVAL: u8 = 5;
+    pub const DEV_FEEDS: [&str; DEV_NUM_FEEDS] = [
+        "9ATrvi6epR5hVYtwNs7BB7VCiYnd4WM7e8MfafWpfiXC", //BTC
+        "7LLvRhMs73FqcLkA8jvEE1AM2mYZXTmqfUv8GAEurymx", //SOL
+        "6fhxFvPocWapZ5Wa2miDnrX2jYRFKvFqYnX11GGkBo2f", //ETH
+        "DR6PqK15tD21MEGSLmDpXwLA7Fw47kwtdZeUMdT7vd7L", //BNB
+        "HPRYVJQ3DcTqszvorS4gCwbJvvNeWMgaCCoF3Lj3sAgC", //ADA
+        "2qcLzR7FatMnfCbiB9BdhGsd6SxDgEqWq7xkD62n3xoT", //BCH
+        "Bux82YCH8DgqFAQTKBxuQHDp3cud5AhD1Kibhjadz22D", //SBR
+        "9gGvxPErkRubNj1vKE19smLa4Kp89kkzMVyA6TMvmKEZ", //ZEC
+        "3WNhN4RJwRui4R3k1S9agGzyMZkCwKQkWjoEHbDeAF8J", //LUNA
+        "CNzjdKHfXqyAeGd2APpzvwLcuPACrFdHb3k6SLsod6Ao", //TRX
+        "6cBTHY4HQ4PABmhUqVLT4n4bNpmZAi2br5VnqTQoVRUo", //SUSHI
+        "GRGMtrTszsoNzjqwTxsvkHVAPq5Snju2UzaAws5KBPed", //DOGE
+        "C9CeLP5B4Lqq7cFppRBUZjt6hrvd99YR3Sk4EPPuAoAC", //LTC
+        "FReW6u9YPpGQNaeEHNkVqA4KGA2WzbcT87NThwFb7fwm", //XLM
+        "GEp5pZFjFPqn1teMmx9sLPyADf9N9aQsRn9TE17PwmmL", //LINK
+        "Fd3UQMqmKCA6SNf6To97PdC2H3EfzYWR5bxr5CBYuFiy", //DOT
+        "EQHf8ueSzJUPELF6yZkyGfwjbLsDmMwFrAYehmC15b6c", //XMR
+        "C5x5W7BHVY61ULtWQ3qkP7kpE6zHViWd4AHpKDuAywPw", //SRM
+        "HnbpTLbdv78hkVCDBZ52o5E6bkqtsZp4tUXBd2E8Sw9x", //PORT
+        "EbpMMgMkC4Jt2oipUBc2GPL4XQo5uxKT8NpF8NEZWvqL", //PAI
+    ];
+    pub const MAIN_NUM_FEEDS: usize = 2;
+    pub const MAIN_PRICE_TIME_INTERVAL: u8 = 20;
+    pub const MAIN_FEEDS: [&str; MAIN_NUM_FEEDS] = [
+        "8SXvChNYFhRq4EZuZvnhjrB3jJRQCv4k3P4W6hesH3Ee", //BTC
+        "E3cqnoFvTeKKNsGmC8YitpMjo2E39hwfoyt2Aiem7dCb", //SOL
+    ];
+    pub const LOCALTEST_NUM_FEEDS: usize = 2;
+    pub const LOCALTEST_PRICE_TIME_INTERVAL: u8 = 20;
+    pub const LOCALTEST_FEEDS: [&str; MAIN_NUM_FEEDS] = [
+        "9ATrvi6epR5hVYtwNs7BB7VCiYnd4WM7e8MfafWpfiXC", //BTC
+        "7LLvRhMs73FqcLkA8jvEE1AM2mYZXTmqfUv8GAEurymx", //SOL
+    ];
+
+    pub const NETWORK: Network = Network::Devnet;
 
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
@@ -304,7 +351,7 @@ impl UrisAccount {
         if rarity as usize > self.rarities.len() {
             Err(InglError::InvalidUrisAccountData.utilize("Rarity is out of bounds"))?
         }
-        
+
         if self.uris.len() == rarity as usize {
             self.uris.push(uris);
         } else {
@@ -450,6 +497,7 @@ pub enum FundsLocation {
 pub struct NftData {
     pub validation_phrase: u32,
     pub rarity: Option<u8>,
+    pub rarity_seed_time: Option<u32>,
     pub funds_location: FundsLocation,
     pub numeration: u32,
     pub date_created: u32,
@@ -464,6 +512,28 @@ impl NftData {
         // 4 + 1 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
         40 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
     }
+}
+
+pub fn get_feeds(network: &Network) -> Vec<Pubkey> {
+    let mut feeds = Vec::new();
+    match network {
+        Network::Devnet => {
+            for feed in constants::DEV_FEEDS {
+                feeds.push(Pubkey::from_str(feed).unwrap());
+            }
+        }
+        Network::Mainnet => {
+            for feed in constants::MAIN_FEEDS {
+                feeds.push(Pubkey::from_str(feed).unwrap());
+            }
+        }
+        Network::LocalTest => {
+            for feed in constants::LOCALTEST_FEEDS {
+                feeds.push(Pubkey::from_str(feed).unwrap());
+            }
+        }
+    }
+    return feeds;
 }
 
 #[derive(BorshDeserialize, Debug, Eq, PartialEq, Hash, BorshSerialize, Clone)]
