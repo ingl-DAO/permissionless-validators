@@ -4,7 +4,7 @@ use crate::{
     error::InglError,
     log,
     state::{constants::*, FundsLocation, GeneralData, Network, NftData, ValidatorConfig},
-    utils::{get_clock_data, get_rent_data_from_account, AccountInfoHelpers, ResultExt},
+    utils::{get_clock_data, get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
 use anchor_lang::{prelude::ProgramError, AnchorDeserialize};
 use borsh::BorshSerialize;
@@ -297,7 +297,17 @@ pub fn process_mint_nft(
             ),
             format!(
                 "{} #{}",
-                config_data.validator_name, &general_data.mint_numeration
+                config_data
+                    .validator_name
+                    .get(
+                        0..(if config_data.validator_name.len() > 5 {
+                            5
+                        } else {
+                            config_data.validator_name.len()
+                        })
+                    )
+                    .error_log("error determining collection symbol")?,
+                &general_data.mint_numeration
             ),
             String::from("https://arweave.net/AuerBevMJQeh_kznVHNvfpH_hmeDfGwKjDrknHv13z0"),
             Some(creators),
