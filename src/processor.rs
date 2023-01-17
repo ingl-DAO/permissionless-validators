@@ -76,13 +76,9 @@ pub fn process_instruction(
 
         InstructionEnum::MintNft {
             log_level,
-            switchboard_state_bump,
-            permission_bump,
         } => process_mint_nft(
             program_id,
             accounts,
-            switchboard_state_bump,
-            permission_bump,
             log_level,
             false,
         )?,
