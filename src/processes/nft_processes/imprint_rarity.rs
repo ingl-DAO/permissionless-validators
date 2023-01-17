@@ -1,15 +1,14 @@
 use crate::{
+    error::InglError,
     log,
     state::{
-        constants::{
-            CUMMULATED_RARITY, INGL_MINT_AUTHORITY_KEY, INGL_VRF_MAX_RESULT, NFT_ACCOUNT_CONST,
-        },
-        NftData, UrisAccount, VrfClientState,
+        constants::{INGL_MINT_AUTHORITY_KEY, NETWORK, NFT_ACCOUNT_CONST},
+        get_feeds, Network, NftData, UrisAccount,
     },
-    utils::{get_clock_data, AccountInfoHelpers, ResultExt},
+    utils::{get_clock_data, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
-use anchor_lang::{AnchorDeserialize, __private::bytemuck};
+use anchor_lang::AnchorDeserialize;
 
 use borsh::BorshSerialize;
 
@@ -17,6 +16,7 @@ use mpl_token_metadata::state::{DataV2, Metadata, PREFIX};
 
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
+    blake3::hash,
     entrypoint::ProgramResult,
     program::invoke_signed,
     program_error::ProgramError,
@@ -26,7 +26,9 @@ use solana_program::{
 use solana_program::program_pack::Pack;
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::{error::TokenError, state::Account};
-use switchboard_v2::VrfAccountData;
+use switchboard_v2::{
+    AggregatorHistoryBuffer, AggregatorHistoryRow, SWITCHBOARD_PROGRAM_ID, SWITCHBOARD_V2_DEVNET,
+};
 
 pub fn process_imprint_rarity(
     program_id: &Pubkey,
@@ -46,22 +48,7 @@ pub fn process_imprint_rarity(
     let ingl_config_account_info = next_account_info(account_info_iter)?;
     let uris_account_info = next_account_info(account_info_iter)?;
 
-    let nft_vrf_account_info = next_account_info(account_info_iter)?;
-    let nft_vrf_state_account_info = next_account_info(account_info_iter)?;
-
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
-
-    ingl_config_account_info
-        .assert_owner(&program_id)
-        .error_log("Error: Ingl config account is not owned by the program")?;
-
-    let mut nft_data = NftData::validate(NftData::deserialize(
-        &mut &nft_account_info.data.borrow()[..],
-    )?)?;
-
-    if let Some(_) = nft_data.rarity {
-        Err(ProgramError::InvalidAccountData).error_log("Rarity has already been imprinted")?
-    }
 
     payer_account_info
         .assert_signer()
@@ -89,6 +76,27 @@ pub fn process_imprint_rarity(
         ))
         .error_log("associated_token_account_info")?;
 
+    ingl_config_account_info
+        .assert_owner(&program_id)
+        .error_log("Error: Ingl config account is not owned by the program")?;
+
+    let mut nft_data = NftData::validate(
+        NftData::deserialize(&mut &nft_account_info.data.borrow()[..])
+            .error_log("Error: Error desirializing NFT account data")?,
+    )
+    .error_log("Error: Invalid NFT Account")?;
+
+    if (clock_data.unix_timestamp as u32)
+        < nft_data
+            .rarity_seed_time
+            .error_log("Error: Rarity seed time can't be None")?
+    {
+        Err(InglError::TooEarly.utilize("imprint_rarity"))?
+    }
+    if let Some(_) = nft_data.rarity {
+        Err(ProgramError::InvalidAccountData).error_log("Rarity has already been imprinted")?
+    }
+
     let associated_token_account_data =
         Account::unpack(&associated_token_account_info.data.borrow())?;
     if associated_token_account_data.amount != 1 {
@@ -100,7 +108,6 @@ pub fn process_imprint_rarity(
 
     let (mint_authority_key, mint_authority_bump) = freeze_authority_account_info
         .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])?;
-
     let (_gem_pubkey, _gem_bump) =
         nft_account_info.assert_seed(&mint_account_info.key, &[NFT_ACCOUNT_CONST.as_ref()])?;
 
@@ -114,10 +121,22 @@ pub fn process_imprint_rarity(
         ],
         &mpl_token_metadata_id,
     );
-
     nft_edition_account_info
         .assert_key_match(&nft_edition_key)
         .error_log("Error: @edition_account_info")?;
+
+    let mpl_token_metadata_id = mpl_token_metadata::id();
+    let metadata_seeds = &[
+        PREFIX.as_bytes(),
+        mpl_token_metadata_id.as_ref(),
+        mint_account_info.key.as_ref(),
+    ];
+    let (nft_metadata_key, _nft_metadata_bump) =
+        Pubkey::find_program_address(metadata_seeds, &mpl_token_metadata::id());
+
+    metadata_account_info
+        .assert_key_match(&nft_metadata_key)
+        .error_log("Error: @meta_data_account_info")?;
 
     log!(log_level, 2, "Thawing the token account ...");
     invoke_signed(
@@ -139,49 +158,60 @@ pub fn process_imprint_rarity(
     .error_log("Error: @ thawing the token account")?;
     log!(log_level, 2, "Token account thawed !!!");
 
-    let mpl_token_metadata_id = mpl_token_metadata::id();
-    let metadata_seeds = &[
-        PREFIX.as_bytes(),
-        mpl_token_metadata_id.as_ref(),
-        mint_account_info.key.as_ref(),
-    ];
-
-    let (nft_metadata_key, _nft_metadata_bump) =
-        Pubkey::find_program_address(metadata_seeds, &mpl_token_metadata::id());
-
-    metadata_account_info
-        .assert_key_match(&nft_metadata_key)
-        .error_log("Error: @meta_data_account_info")?;
-
     let gem_metadata = Metadata::deserialize(&mut &metadata_account_info.data.borrow()[..])
         .error_log("Error: @ deserialize metadata")?;
 
-    let vrf_account_data =
-        VrfAccountData::new(nft_vrf_account_info).error_log("Failed to get vrf account data")?;
-    let result_buffer = vrf_account_data
-        .get_result()
-        .error_log("Failed to get vrf result")?;
+    let mut rarity_hash_bytes = Vec::new();
 
-    if result_buffer == [0u8; 32] {
-        Err(ProgramError::InvalidAccountData).error_log("Empty VRF account buffer")?
+    let interested_network = NETWORK;
+    let history_feeds_pubkeys = get_feeds(&interested_network);
+    log!(log_level, 0, "starting history feeds loop");
+    for cnt in 0..history_feeds_pubkeys.len() {
+        let history_feed_account_info = next_account_info(account_info_iter)?;
+        match interested_network {
+            Network::LocalTest => {
+                history_feed_account_info
+                    .assert_owner(&SWITCHBOARD_V2_DEVNET)
+                    .error_log("@history_feed")?;
+            }
+            _ => {
+                history_feed_account_info
+                    .assert_owner(&SWITCHBOARD_PROGRAM_ID)
+                    .error_log("@history_feed")?;
+            }
+        }
+        if &history_feeds_pubkeys[cnt] != history_feed_account_info.key {
+            Err(InglError::InvalidHistoryBufferKeys
+                .utilize(&format!("a problem with history buffer key No: {}", cnt)))?
+        }
+
+        let history_feed = AggregatorHistoryBuffer::new(history_feed_account_info)
+            .error_log(&format!("Error getting history feed No: {}", cnt))?;
+        let AggregatorHistoryRow {
+            value,
+            timestamp: _,
+        } = history_feed
+            .lower_bound(
+                nft_data
+                    .rarity_seed_time
+                    .error_log("Error: rarity seed time can't be None")? as i64,
+            )
+            .error_log("Error @ getting AggregatorHistoryRow")?;
+
+        let history_feed_price = value.mantissa as u128;
+        rarity_hash_bytes.extend(&history_feed_price.to_be_bytes());
     }
-
-    let mut vrf_state_account_data =
-        VrfClientState::deserialize(&mut &nft_vrf_state_account_info.data.borrow()[..])
-            .error_log("Failed to deserialize @vrf_state_account_info data")?;
-
-    if result_buffer == vrf_state_account_data.result_buffer {
-        Err(ProgramError::InvalidAccountData).error_log("Unchanged VRF result buffer")?
-    }
+    log!(log_level, 0, "finished history feeds loop");
+    rarity_hash_bytes.extend(&program_id.to_bytes());
+    rarity_hash_bytes.extend(&mint_account_info.key.to_bytes());
 
     let uris_data = Box::new(UrisAccount::parse(&uris_account_info, program_id)?);
-    let random_value = get_vrf_value(result_buffer, vrf_state_account_data.max_result, log_level);
     let seed = if clock_is_from_account {
         1
     } else {
-        (random_value % CUMMULATED_RARITY as u128) as u16
+        get_rarity_seed(rarity_hash_bytes.clone())
     };
-    let (uri, rarity) = uris_data.get_uri(seed);
+    let (nft_rarity_uri, rarity) = uris_data.get_uri(seed);
 
     log!(log_level, 2, "Updating metadata account ...");
     invoke_signed(
@@ -191,7 +221,7 @@ pub fn process_imprint_rarity(
             *freeze_authority_account_info.key,
             Some(*freeze_authority_account_info.key),
             Some(DataV2 {
-                uri: uri,
+                uri: nft_rarity_uri,
                 uses: gem_metadata.uses,
                 name: gem_metadata.data.name,
                 symbol: gem_metadata.data.symbol,
@@ -216,31 +246,17 @@ pub fn process_imprint_rarity(
         .serialize(&mut &mut nft_account_info.data.borrow_mut()[..])
         .error_log("Failed to serialize @nft_account_info data")?;
 
-    if vrf_state_account_data.result != random_value {
-        vrf_state_account_data.result_buffer = result_buffer;
-        vrf_state_account_data.result = random_value;
-        vrf_state_account_data.timestamp = clock_data.unix_timestamp;
-
-        vrf_state_account_data
-            .serialize(&mut &mut nft_vrf_state_account_info.data.borrow_mut()[..])
-            .error_log("Failed to serialize @nft_vrf_state_account_info data")?;
-    }
-
     log!(log_level, 4, "Imprint rarity !!!");
     Ok(())
 }
 
-fn get_vrf_value(result_buffer: [u8; 32], max_result: u64, log_level: u8) -> u128 {
-    log!(log_level, 0, "Result buffer is {:?}", result_buffer);
-    let value: &[u128] = bytemuck::cast_slice(&result_buffer[..]);
-    log!(log_level, 0, "u128 buffer {:?}", value);
-    let random_value = value[0] % max_result as u128 + 1;
-    log!(
-        log_level,
-        0,
-        "Current VRF Value [1 - {}) = {}!",
-        INGL_VRF_MAX_RESULT,
-        random_value
-    );
-    random_value
+fn get_rarity_seed(seed_bytes: Vec<u8>) -> u16 {
+    let rarity_hash_bytes = hash(&seed_bytes).to_bytes();
+
+    let mut byte_sum: u64 = 0;
+    for byte in rarity_hash_bytes {
+        byte_sum = byte_sum + (byte as u64).pow(3);
+    }
+
+    (byte_sum % 10000) as u16
 }

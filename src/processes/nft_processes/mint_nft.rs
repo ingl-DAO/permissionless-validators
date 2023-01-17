@@ -19,8 +19,7 @@ use solana_program::{
     program::{invoke, invoke_signed},
     program_pack::Pack,
     pubkey::Pubkey,
-    system_instruction, system_program,
-    sysvar,
+    system_instruction, system_program, sysvar,
 };
 
 use spl_associated_token_account::{get_associated_token_address, *};
@@ -523,8 +522,11 @@ fn init_imprint_rarity(
         Err(TokenError::AccountFrozen)?
     }
 
-    let mut nft_data = NftData::deserialize(&mut &nft_account_info.data.borrow()[..])
-        .error_log("Error: @gem_account_info data decoding")?;
+    let mut nft_data = NftData::validate(
+        NftData::deserialize(&mut &nft_account_info.data.borrow()[..])
+            .error_log("Error: Error desirializing NFT account data")?,
+    )
+    .error_log("Error: Invalid NFT Account")?;
 
     if let Some(_) = nft_data.rarity_seed_time {
         Err(ProgramError::InvalidAccountData).error_log("@nft_data rarity seed time already set")?
