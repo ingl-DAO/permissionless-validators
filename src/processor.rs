@@ -46,6 +46,7 @@ pub fn process_instruction(
             validator_name,
             collection_uri,
             website,
+            default_uri,
         } => process_init(
             program_id,
             accounts,
@@ -67,6 +68,7 @@ pub fn process_instruction(
             validator_name,
             collection_uri,
             website,
+            default_uri,
         )?,
         InstructionEnum::CreateVoteAccount { log_level } => {
             create_vote_account(program_id, accounts, log_level, false)?

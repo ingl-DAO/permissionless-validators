@@ -39,6 +39,7 @@ pub enum InstructionEnum {
         validator_name: String,
         collection_uri: String,
         website: String,
+        default_uri: String,
     },
     Redeem {
         log_level: u8,

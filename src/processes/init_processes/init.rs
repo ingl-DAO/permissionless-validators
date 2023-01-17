@@ -35,6 +35,7 @@ pub fn process_init(
     validator_name: String,
     collection_uri: String,
     website: String,
+    default_uri: String,
 ) -> ProgramResult {
     log!(log_level, 4, "Init Process Started");
     let account_info_iter = &mut accounts.iter();
@@ -129,7 +130,7 @@ pub fn process_init(
         init_commission,
         *validator_account_info.key,
         governance_expiration_time,
-        collection_uri,
+        default_uri,
         validator_name,
         twitter_handle,
         discord_invite,

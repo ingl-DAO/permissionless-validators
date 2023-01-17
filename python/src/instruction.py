@@ -1,5 +1,5 @@
 from typing import Optional
-from borsh_construct import *
+from borsh_construct import U8, U64, String, U32, U16, Bool, Vec, CStruct, Enum
 from solana.publickey import PublicKey
 from solana.transaction import TransactionInstruction, AccountMeta
 

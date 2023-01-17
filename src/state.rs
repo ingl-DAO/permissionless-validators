@@ -91,7 +91,7 @@ pub struct ValidatorConfig {
     pub commission: u8,
     pub validator_id: Pubkey,
     pub governance_expiration_time: u32,
-    pub collection_uri: String,
+    pub default_uri: String,
     pub validator_name: String,
     pub twitter_handle: String,
     pub discord_invite: String,
@@ -102,7 +102,7 @@ impl ValidatorConfig {
     pub fn get_space(&self) -> usize {
         // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
         // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4 + 4 + 4  = 87
-        87 + self.collection_uri.len()
+        87 + self.default_uri.len()
             + self.validator_name.len()
             + self.twitter_handle.len()
             + self.discord_invite.len()
@@ -175,7 +175,7 @@ impl ValidatorConfig {
             Err(InglError::InvalidConfigData
                 .utilize("Governance expiration time must be less than 1 year"))?
         }
-        if self.collection_uri.len() > 75 {
+        if self.default_uri.len() > 75 {
             Err(InglError::InvalidConfigData
                 .utilize("Collection URI must be less than 64 characters"))?
         }
@@ -194,7 +194,7 @@ impl ValidatorConfig {
         commission: u8,
         validator_id: Pubkey,
         governance_expiration_time: u32,
-        collection_uri: String,
+        default_uri: String,
         validator_name: String,
         twitter_handle: String,
         discord_invite: String,
@@ -213,7 +213,7 @@ impl ValidatorConfig {
             commission,
             validator_id,
             governance_expiration_time,
-            collection_uri,
+            default_uri,
             validator_name,
             twitter_handle,
             discord_invite,
@@ -304,7 +304,7 @@ impl UrisAccount {
         if rarity as usize > self.rarities.len() {
             Err(InglError::InvalidUrisAccountData.utilize("Rarity is out of bounds"))?
         }
-        
+
         if self.uris.len() == rarity as usize {
             self.uris.push(uris);
         } else {

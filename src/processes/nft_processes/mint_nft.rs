@@ -317,7 +317,7 @@ pub fn process_mint_nft(
                 "{} #{}",
                 config_data.validator_name, &general_data.mint_numeration
             ),
-            String::from("https://arweave.net/AuerBevMJQeh_kznVHNvfpH_hmeDfGwKjDrknHv13z0"),
+            config_data.default_uri,
             Some(creators),
             300,
             true,
@@ -668,10 +668,12 @@ fn request_randomness(
         )
         .error_log("@nft_vrf_state_account")?;
 
-    let escrow_token_account: AnchorAccount<TokenAccount> = AnchorAccount::try_from(&escrow_account_info)
-        .error_log("Failed to get Account<TokenAccount> @escrow_account_info")?;
-    let payer_wallet_token_account: AnchorAccount<TokenAccount>= AnchorAccount::try_from(&payer_wallet_account_info)
-        .error_log("Failed to get Account<TokenAccount> @payer_authority_account_info")?;
+    let escrow_token_account: AnchorAccount<TokenAccount> =
+        AnchorAccount::try_from(&escrow_account_info)
+            .error_log("Failed to get Account<TokenAccount> @escrow_account_info")?;
+    let payer_wallet_token_account: AnchorAccount<TokenAccount> =
+        AnchorAccount::try_from(&payer_wallet_account_info)
+            .error_log("Failed to get Account<TokenAccount> @payer_authority_account_info")?;
 
     let vrf_request_randomness = VrfRequestRandomness {
         authority: nft_vrf_state_account_info.clone(),
