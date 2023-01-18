@@ -12,7 +12,10 @@ use crate::{
             init_governance::create_governance, vote_governance::vote_governance,
         },
         init_processes::{init::process_init, reset_uris::reset_uris, upload_uris::upload_uris},
-        nft_processes::{imprint_rarity::process_imprint_rarity, mint_nft::process_mint_nft},
+        nft_processes::{
+            delegate_nft::delegate_gem, imprint_rarity::process_imprint_rarity,
+            mint_nft::process_mint_nft, undelegate_nft::undelegate_gem,
+        },
         rewards_processes::{
             finalize_rebalance::finalize_rebalance, init_rebalance::init_rebalance,
             nft_withdraw::nft_withdraw, process_rewards::process_rewards,
@@ -74,14 +77,9 @@ pub fn process_instruction(
             create_vote_account(program_id, accounts, log_level, false)?
         }
 
-        InstructionEnum::MintNft {
-            log_level,
-        } => process_mint_nft(
-            program_id,
-            accounts,
-            log_level,
-            false,
-        )?,
+        InstructionEnum::MintNft { log_level } => {
+            process_mint_nft(program_id, accounts, log_level, false)?
+        }
         InstructionEnum::ImprintRarity { log_level } => {
             process_imprint_rarity(program_id, accounts, log_level, false)?
         }
@@ -145,6 +143,14 @@ pub fn process_instruction(
 
         InstructionEnum::ResetUris { log_level } => {
             reset_uris(program_id, accounts, log_level)?;
+        }
+
+        InstructionEnum::UnDelegateNFT { log_level } => {
+            undelegate_gem(program_id, accounts, log_level, false, false)?;
+        }
+
+        InstructionEnum::DelegateNFT { log_level } => {
+            delegate_gem(program_id, accounts, log_level, false)?;
         }
 
         _ => {

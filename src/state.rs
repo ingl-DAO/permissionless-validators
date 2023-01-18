@@ -508,9 +508,9 @@ pub struct NftData {
 }
 impl NftData {
     pub fn get_space(&self) -> usize {
-        // 4 + 1 + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
-        // 4 + 1 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
-        40 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
+        // 4 + (1 + 1) + (1 + 4) + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
+        // 4 + 1 + 1 + 1 + 4 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
+        46 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
     }
 }
 
@@ -673,7 +673,7 @@ pub struct GovernanceData {
 }
 impl GovernanceData {
     pub fn get_space(&self) -> usize {
-        let mut space = 4 + 4 + 1 + 4;
+        let mut space = 4 + 4 + 1 + 5 + 2 + 1;
         space += self.votes.len() * 5;
         space += 4 + self.title.len();
         space += 4 + self.description.len();

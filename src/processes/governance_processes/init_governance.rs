@@ -165,7 +165,7 @@ pub fn create_governance(
         ),
         &[payer_account_info.clone(), proposal_account_info.clone()],
         &[&[
-            INGL_PROGRAM_AUTHORITY_KEY.as_ref(),
+            INGL_PROPOSAL_KEY.as_ref(),
             &general_account_data.proposal_numeration.to_be_bytes(),
             &[proposal_bump],
         ]],

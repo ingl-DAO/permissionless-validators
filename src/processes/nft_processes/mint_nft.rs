@@ -296,12 +296,12 @@ pub fn process_mint_nft(
                 config_data.validator_name, &general_data.mint_numeration
             ),
             format!(
-                "{} #{}",
+                "{}#{}",
                 config_data
                     .validator_name
                     .get(
-                        0..(if config_data.validator_name.len() > 5 {
-                            5
+                        0..(if config_data.validator_name.len() > 8 {
+                            8
                         } else {
                             config_data.validator_name.len()
                         })

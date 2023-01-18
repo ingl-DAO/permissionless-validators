@@ -13,13 +13,13 @@ use crate::state::{constants, GovernanceType, VoteAuthorize, VoteInit, VoteState
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
-    MintNft {
+    MintNft { // Tested
         log_level: u8,
     },
-    ImprintRarity {
+    ImprintRarity { //Untested
         log_level: u8,
     },
-    Init {
+    Init { //Tested
         log_level: u8,
         init_commission: u8,
         max_primary_stake: u64,
@@ -40,56 +40,56 @@ pub enum InstructionEnum {
         website: String,
         default_uri: String,
     },
-    Redeem {
+    Redeem { //Untested
         log_level: u8,
     },
-    NFTWithdraw {
+    NFTWithdraw { //Tested
         cnt: usize,
         log_level: u8,
     },
-    ProcessRewards {
+    ProcessRewards { //Tested
         log_level: u8,
     },
-    InitRebalance {
+    InitRebalance { //Tested
         log_level: u8,
     },
-    FinalizeRebalance {
+    FinalizeRebalance { //Tested
         log_level: u8,
     },
-    UploadUris {
+    UploadUris { //Tested
         uris: Vec<String>,
         rarity: u8,
         log_level: u8,
     },
-    ResetUris {
+    ResetUris { //Tested
         log_level: u8,
     },
-    UnDelegateNFT {
+    UnDelegateNFT { //Tested
         log_level: u8,
     },
-    DelegateNFT {
+    DelegateNFT { //Tested
         log_level: u8,
     },
-    CreateVoteAccount {
+    CreateVoteAccount { //Tested
         log_level: u8,
     },
-    InitGovernance {
+    InitGovernance { //Untested
         governance_type: GovernanceType,
         title: String,
         description: String,
         log_level: u8,
     },
-    VoteGovernance {
+    VoteGovernance { //Untested
         numeration: u32,
         vote: bool,
         cnt: u8,
         log_level: u8,
     },
-    FinalizeGovernance {
+    FinalizeGovernance { //Untested
         numeration: u32,
         log_level: u8,
     },
-    ExecuteGovernance {
+    ExecuteGovernance { //Untested
         numeration: u32,
         log_level: u8,
     },
