@@ -108,8 +108,8 @@ pub mod constants {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
     }
 
-    pub mod config {
-        solana_program::declare_id!("Config1111111111111111111111111111111111111");
+    pub mod program_registry {
+        solana_program::declare_id!("38pfsot7kCZkrttx1THEDXEz4JJXmCCcaDoDieRtVuy5");
     }
 
     pub mod team {

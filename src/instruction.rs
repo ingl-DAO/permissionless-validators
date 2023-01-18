@@ -1,3 +1,4 @@
+use anchor_lang::system_program;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use solana_program::{
@@ -8,7 +9,7 @@ use solana_program::{
     system_instruction, sysvar,
 };
 
-use crate::state::{GovernanceType, VoteAuthorize, VoteInit, VoteState};
+use crate::state::{constants, GovernanceType, VoteAuthorize, VoteInit, VoteState};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
@@ -96,6 +97,37 @@ pub enum InstructionEnum {
 impl InstructionEnum {
     pub fn decode(data: &[u8]) -> Self {
         try_from_slice_unchecked(data).expect("Failed during the Desrialization of InstructionEnum")
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum RegistryInstructionEnum {
+    InitConfig,
+    AddProgram,
+    RemovePrograms { program_count: u8 },
+    Blank,
+}
+
+pub fn register_program_instruction(
+    payer: Pubkey,
+    program_id: Pubkey,
+    storage_key: Pubkey,
+) -> Instruction {
+    let instr = RegistryInstructionEnum::AddProgram;
+    let data = instr.try_to_vec().unwrap();
+    let config_key =
+        Pubkey::find_program_address(&[b"config"], &constants::program_registry::id()).0;
+    Instruction {
+        program_id: constants::program_registry::id(),
+        accounts: vec![
+            AccountMeta::new(payer, true),
+            AccountMeta::new(config_key, false),
+            AccountMeta::new_readonly(program_id, false),
+            AccountMeta::new(constants::team::id(), false),
+            AccountMeta::new(storage_key, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data,
     }
 }
 

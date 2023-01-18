@@ -80,7 +80,7 @@ pub fn create_governance(
 
     let buffer_address_info;
 
-    match governance_type.clone() {
+    match &governance_type {
         GovernanceType::ProgramUpgrade {
             buffer_account,
             code_link: _,
