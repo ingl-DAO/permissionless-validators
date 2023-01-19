@@ -112,18 +112,18 @@ pub fn undelegate_gem(
     general_account_data.total_delegated = general_account_data
         .total_delegated
         .checked_sub(config_data.unit_backing)
-        .error_log("Error: @ ingl_vote_account_data.total_delegated recalc")?;
+        .error_log("Error: @ general_data.total_delegated recalc")?;
 
     if general_account_data.pending_delegation_total >= config_data.unit_backing {
         general_account_data.pending_delegation_total = general_account_data
             .pending_delegation_total
             .checked_sub(config_data.unit_backing)
-            .error_log("Error: @ ingl_vote_account_data.pending_delegation_total recalc")?;
+            .error_log("Error: @ general_data.pending_delegation_total recalc")?;
     } else {
         general_account_data.dealloced = general_account_data
             .dealloced
             .checked_add(config_data.unit_backing)
-            .error_log("Error: @ global_gem_account_data.dealloced_total recalc")?;
+            .error_log("Error: @ general_data.dealloced_total recalc")?;
     }
 
     match nft_account_data.funds_location {
@@ -135,10 +135,7 @@ pub fn undelegate_gem(
 
     general_account_data
         .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
-        .error_log("Error: @global_gem_account_data serialization")?;
-    general_account_data
-        .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
-        .error_log("Error: @ingl_vote_account_data serialization")?;
+        .error_log("Error: @general_data serialization")?;
     nft_account_data
         .serialize(&mut &mut nft_account_data_info.data.borrow_mut()[..])
         .error_log("Error: @gem_account_data serialization")?;

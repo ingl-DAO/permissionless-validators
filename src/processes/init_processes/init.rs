@@ -9,6 +9,7 @@ use solana_program::{
 };
 
 use crate::{
+    instruction::register_program_instruction,
     log,
     state::{constants::*, GeneralData, UrisAccount, ValidatorConfig},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
@@ -35,6 +36,7 @@ pub fn process_init(
     validator_name: String,
     collection_uri: String,
     website: String,
+    default_uri: String,
 ) -> ProgramResult {
     log!(log_level, 4, "Init Process Started");
     let account_info_iter = &mut accounts.iter();
@@ -52,6 +54,11 @@ pub fn process_init(
     let edition_account_info = next_account_info(account_info_iter)?;
     let spl_token_program_account_info = next_account_info(account_info_iter)?;
     let system_program_account_info = next_account_info(account_info_iter)?;
+
+    let registry_program_config_account = next_account_info(account_info_iter)?;
+    let this_program_account_info = next_account_info(account_info_iter)?;
+    let team_account_info = next_account_info(account_info_iter)?;
+    let storage_account_info = next_account_info(account_info_iter)?;
 
     let rent_data = get_rent_data_from_account(rent_account_info)?;
 
@@ -129,7 +136,7 @@ pub fn process_init(
         init_commission,
         *validator_account_info.key,
         governance_expiration_time,
-        collection_uri,
+        default_uri,
         validator_name,
         twitter_handle,
         discord_invite,
@@ -185,7 +192,24 @@ pub fn process_init(
         .serialize(&mut &mut uris_account_info.data.borrow_mut()[..])
         .error_log("Error @ Uris Account Data Serialization")?;
 
-    log!(log_level, 4, "Initialization completed ...");
+    log!(log_level, 2, "Initing Program Registration ... ");
+    invoke(
+        &register_program_instruction(
+            *payer_account_info.key,
+            *program_id,
+            *storage_account_info.key,
+        ),
+        &[
+            payer_account_info.clone(),
+            registry_program_config_account.clone(),
+            this_program_account_info.clone(),
+            team_account_info.clone(),
+            storage_account_info.clone(),
+            system_program_account_info.clone(),
+        ],
+    )?;
+
+    log!(log_level, 4, "Initialization completed !!!");
     Ok(())
 }
 

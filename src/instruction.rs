@@ -1,3 +1,4 @@
+use anchor_lang::system_program;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use solana_program::{
@@ -8,19 +9,17 @@ use solana_program::{
     system_instruction, sysvar,
 };
 
-use crate::state::{GovernanceType, VoteAuthorize, VoteInit, VoteState};
+use crate::state::{constants, GovernanceType, VoteAuthorize, VoteInit, VoteState};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
-    MintNft {
-        switchboard_state_bump: u8,
-        permission_bump: u8,
+    MintNft { // Tested
         log_level: u8,
     },
-    ImprintRarity {
+    ImprintRarity { //Untested
         log_level: u8,
     },
-    Init {
+    Init { //Tested
         log_level: u8,
         init_commission: u8,
         max_primary_stake: u64,
@@ -39,57 +38,58 @@ pub enum InstructionEnum {
         validator_name: String,
         collection_uri: String,
         website: String,
+        default_uri: String,
     },
-    Redeem {
+    Redeem { //Untested
         log_level: u8,
     },
-    NFTWithdraw {
+    NFTWithdraw { //Tested
         cnt: usize,
         log_level: u8,
     },
-    ProcessRewards {
+    ProcessRewards { //Tested
         log_level: u8,
     },
-    InitRebalance {
+    InitRebalance { //Tested
         log_level: u8,
     },
-    FinalizeRebalance {
+    FinalizeRebalance { //Tested
         log_level: u8,
     },
-    UploadUris {
+    UploadUris { //Tested
         uris: Vec<String>,
         rarity: u8,
         log_level: u8,
     },
-    ResetUris {
+    ResetUris { //Tested
         log_level: u8,
     },
-    UnDelegateNFT {
+    UnDelegateNFT { //Tested
         log_level: u8,
     },
-    DelegateNFT {
+    DelegateNFT { //Tested
         log_level: u8,
     },
-    CreateVoteAccount {
+    CreateVoteAccount { //Tested
         log_level: u8,
     },
-    InitGovernance {
+    InitGovernance { //Tested
         governance_type: GovernanceType,
         title: String,
         description: String,
         log_level: u8,
     },
-    VoteGovernance {
+    VoteGovernance { //Tested
         numeration: u32,
         vote: bool,
         cnt: u8,
         log_level: u8,
     },
-    FinalizeGovernance {
+    FinalizeGovernance { //Untested
         numeration: u32,
         log_level: u8,
     },
-    ExecuteGovernance {
+    ExecuteGovernance { //Untested
         numeration: u32,
         log_level: u8,
     },
@@ -97,6 +97,37 @@ pub enum InstructionEnum {
 impl InstructionEnum {
     pub fn decode(data: &[u8]) -> Self {
         try_from_slice_unchecked(data).expect("Failed during the Desrialization of InstructionEnum")
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum RegistryInstructionEnum {
+    InitConfig,
+    AddProgram,
+    RemovePrograms { program_count: u8 },
+    Blank,
+}
+
+pub fn register_program_instruction(
+    payer: Pubkey,
+    program_id: Pubkey,
+    storage_key: Pubkey,
+) -> Instruction {
+    let instr = RegistryInstructionEnum::AddProgram;
+    let data = instr.try_to_vec().unwrap();
+    let config_key =
+        Pubkey::find_program_address(&[b"config"], &constants::program_registry::id()).0;
+    Instruction {
+        program_id: constants::program_registry::id(),
+        accounts: vec![
+            AccountMeta::new(payer, true),
+            AccountMeta::new(config_key, false),
+            AccountMeta::new_readonly(program_id, false),
+            AccountMeta::new(constants::team::id(), false),
+            AccountMeta::new(storage_key, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data,
     }
 }
 
