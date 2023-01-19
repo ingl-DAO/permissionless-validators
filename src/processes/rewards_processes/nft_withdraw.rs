@@ -73,9 +73,9 @@ pub fn nft_withdraw(
 
         verify_nft_ownership(
             payer_account_info,
-            mint_account_info,
+            mint_account_info, //@Cyrial why are you collecting account you don't use
             nft_account_data_info,
-            associated_token_account_info,
+            associated_token_account_info, //@Cyrial why are you collecting account you don't use
             program_id,
         )
         .error_log("Error @ nft ownership verification")?;
