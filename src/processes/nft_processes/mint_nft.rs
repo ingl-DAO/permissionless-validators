@@ -300,8 +300,8 @@ pub fn process_mint_nft(
                 config_data
                     .validator_name
                     .get(
-                        0..(if config_data.validator_name.len() > 8 {
-                            8
+                        0..(if config_data.validator_name.len() > 6 {
+                            6
                         } else {
                             config_data.validator_name.len()
                         })

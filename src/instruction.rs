@@ -73,13 +73,13 @@ pub enum InstructionEnum {
     CreateVoteAccount { //Tested
         log_level: u8,
     },
-    InitGovernance { //Untested
+    InitGovernance { //Tested
         governance_type: GovernanceType,
         title: String,
         description: String,
         log_level: u8,
     },
-    VoteGovernance { //Untested
+    VoteGovernance { //Tested
         numeration: u32,
         vote: bool,
         cnt: u8,
