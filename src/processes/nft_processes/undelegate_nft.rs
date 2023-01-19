@@ -133,6 +133,7 @@ pub fn undelegate_gem(
         _ => Err(InglError::InvalidFundsLocation.utilize("gem's funds location."))?,
     }
 
+    //why are you serializing twice thesame account
     general_account_data
         .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
         .error_log("Error: @global_gem_account_data serialization")?;
