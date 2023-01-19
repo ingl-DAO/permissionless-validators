@@ -68,7 +68,7 @@ pub fn upload_uris(
     let space = uris_account_data.get_space();
     if space > 20000 {
         Err(InglError::UrisAccountTooBig.utilize(
-            "Uploaded too many images. Consider Reseting and selecting the best and less images",
+            "Uploaded too many images. Consider Reseting and selecting the best and lesser images",
         ))?
     }
     let lamports: i128 =

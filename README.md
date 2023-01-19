@@ -6,7 +6,7 @@
 Fractionalizing Validator Creation and Ownership</h3>
 <br />
 
-
+## 
 ## Creating your Fractionalized Validator Instance.
 
 ## ⛓️ Prerequisites.

@@ -46,10 +46,13 @@ pub fn nft_withdraw(
 
     let (_general_account_pubkey, _general_account_bump) = general_account_info
         .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
-        .error_log("Error: failed to assert pda input for vote_data_account_info")?;
+        .error_log("Error: failed to assert pda input for general_account_info")?;
     vote_account_info
         .assert_key_match(&vote::program::id())
-        .error_log("Error: vote_account_info must be owned by the spl_program::id()")?;
+        .error_log("Error: vote_account_info must be the expected pda")?;
+    vote_account_info
+        .assert_owner(&vote::program::id())
+        .error_log("Error: vote_account_info must be owned by the vote_program")?;
     general_account_info
         .assert_owner(program_id)
         .error_log("Error: general_account_info must be owned by the program")?;
@@ -157,7 +160,7 @@ pub fn calculate_total_reward(
             .last_delegation_epoch
             .error_log("Error: Last delegation epoch can't be None at this stage")?
     };
-    //TODO: users could delegate right before the end of an epoch, then after the epoch ends, they could run process_rewards, then run the withdraw function. This could be an abuse of the system. A solution might be to make sure than x.epoch_number > 1 + interested_epoch, find x in the line below.
+    //TODO: users could delegate right before the end of an epoch, then after the epoch ends, they could run process_rewards, then run the withdraw function. This could be a problem on validators that have no early redemption fees. This could be an abuse of the system. A solution might be to make sure than x.epoch_number > 1 + interested_epoch, find x in the line below.
     let interested_index = general_data.vote_rewards.iter().position(|x| x.epoch_number > interested_epoch).error_log("Error: couldn't find an epoch greater than both the last delegation epoch and the last withdrrawal epoch.")?;
     let mut total_reward: u128 = 0;
     for i in interested_index..general_data.vote_rewards.len() {
