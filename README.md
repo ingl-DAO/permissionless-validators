@@ -10,7 +10,7 @@ Fractionalizing Validator Creation and Ownership</h3>
 ## Creating your Fractionalized Validator Instance.
 
 ## ⛓️ Prerequisites.
-We currently only recommend using linux.
+We currently only recommend using ubuntu 20.04.
 
 #### Install Solana CLI:
 ```
@@ -40,12 +40,12 @@ ingl config set -p deploy/keypair.json
 ```
 #### Generate and set the deploying authority key
 ```
-solana-keygen new -o ~\.config\solana\id.json
-solana config set --keypair ~\.config\solana\id.json
+solana-keygen new -o ~/.config/solana/id.json
+solana config set --keypair ~/.config/solana/id.json
 ```
 #### Set the validator id
 ```
-ingl config set -k ~\.config\solana\id.json
+ingl config set -k ~/.config/solana/id.json
 ```
 #### On DEVNET airdrop some deployment sol, ideally >10. 
 On mainnet, fund the keypair
@@ -92,22 +92,13 @@ ingl get_vote_pubkey
 replace the 'vote_account' by the key gotten from the instruction above
 ```
 solana-validator \
-    --identity ~\.config\solana\id.json \
-    --vote-account 'vote_account' \
-    --known-validator dv1ZAGvdsz5hHLwWXsVnM94hWf1pjbKVau1QVkaMJ92 \
-    --known-validator dv2eQHeP4RFrJZ6UeiZWoc3XTtmtZCUKxxCApCDcRNV \
-    --known-validator dv4ACNkpYPcE3aKmYDqZm9G5EB3J4MRoeE7WNDRBVJB \
-    --known-validator dv3qDFk1DTF36Z62bNvrCXe9sKATA6xvVy6A798xxAS \
-    --only-known-rpc \
-    --ledger ledger \
+    --identity ~/.config/solana/id.json \
+    --vote-account 'vote_pubkey' \
     --rpc-port 8899 \
-    --dynamic-port-range 8000-8020 \
     --entrypoint entrypoint.devnet.solana.com:8001 \
     --entrypoint entrypoint2.devnet.solana.com:8001 \
     --entrypoint entrypoint3.devnet.solana.com:8001 \
     --entrypoint entrypoint4.devnet.solana.com:8001 \
     --entrypoint entrypoint5.devnet.solana.com:8001 \
-    --expected-genesis-hash EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG \
-    --wal-recovery-mode skip_any_corrupted_record \
-    --limit-ledger-size
+    --log ./solana-validator.log
 ```
