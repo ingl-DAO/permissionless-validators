@@ -16,10 +16,42 @@ We currently only recommend using ubuntu 20.04.
 ```
 sh -c "$(curl -sSfL https://release.solana.com/v1.14.12/install)"
 ```
+
+#### Installing Pip
+```
+sudo apt update
+```
+```
+sudo apt upgrade
+```
+```
+sudo apt install python3-pip 
+```
+#### Installing Venv
+```
+sudo apt install python3-venv
+```
+#### Creating a virtual environment called isol
+```
+python3 -m venv isol
+```
+#### activate the virtual environment
+```
+source isol/bin/activate
+```
+
 #### Install Ingl CLI:
 ```
-pip install ingl
+sudo pip install ingl
 ```
+#### Install rust:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+```
+source "$HOME/.cargo/env"
+```
+
 #### Install Cargo-x:
 ```
 cargo install cargo-x
@@ -41,24 +73,32 @@ ingl config set -p deploy/keypair.json
 #### Generate and set the deploying authority key
 ```
 solana-keygen new -o ~/.config/solana/id.json
+```
+```
 solana config set --keypair ~/.config/solana/id.json
 ```
 #### Set the validator id
 ```
 ingl config set -k ~/.config/solana/id.json
 ```
-#### On DEVNET airdrop some deployment sol, ideally >10. 
+#### Switch to devnet
+```
+solana config set --url devnet
+```
+#### On DEVNET airdrop some deployment sol, ideally >12. 
 On mainnet, fund the keypair
 ```
 solana airdrop 2
 ```
+#### Repeat the command above until a balance of 12 sol or more
+
 #### Compile and deploy the program (on devnet), then set the program upgrade authority to the governance pda
 ```
 cargo-x bdau
 ```
 #### Initialize the program instance
 ``` 
-Ingl Init
+ingl init
 ```
 Fill in all the prompted fields.
 #### Initialize the validator
