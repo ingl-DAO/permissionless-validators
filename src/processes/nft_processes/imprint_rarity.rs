@@ -107,9 +107,11 @@ pub fn process_imprint_rarity(
     }
 
     let (mint_authority_key, mint_authority_bump) = freeze_authority_account_info
-        .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])?;
-    let (_gem_pubkey, _gem_bump) =
-        nft_account_info.assert_seed(&mint_account_info.key, &[NFT_ACCOUNT_CONST.as_ref()])?;
+        .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])
+        .error_log("@mint_authority_accoun_info")?;
+    let (_nft_pubkey, _nft_bump) = nft_account_info
+        .assert_seed(&mint_account_info.key, &[NFT_ACCOUNT_CONST.as_ref()])
+        .error_log("Error: @nft_account_info")?;
 
     let mpl_token_metadata_id = mpl_token_metadata::id();
     let (nft_edition_key, _nft_edition_bump) = Pubkey::find_program_address(
