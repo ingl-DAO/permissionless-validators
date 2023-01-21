@@ -141,12 +141,20 @@ replace the 'vote_account' by the key gotten from the instruction above
 ```
 solana-validator \
     --identity ~/.config/solana/id.json \
-    --vote-account 'vote_pubkey' \
+    --vote-account 'vote_account' \
+    --known-validator dv4ACNkpYPcE3aKmYDqZm9G5EB3J4MRoeE7WNDRBVJB \
+    --known-validator dv2eQHeP4RFrJZ6UeiZWoc3XTtmtZCUKxxCApCDcRNV \
+    --only-known-rpc \
+    --ledger ledger \
     --rpc-port 8899 \
+    --dynamic-port-range 8000-8020 \
     --entrypoint entrypoint.devnet.solana.com:8001 \
     --entrypoint entrypoint2.devnet.solana.com:8001 \
     --entrypoint entrypoint3.devnet.solana.com:8001 \
     --entrypoint entrypoint4.devnet.solana.com:8001 \
     --entrypoint entrypoint5.devnet.solana.com:8001 \
-    --log ./solana-validator.log
+    --expected-genesis-hash EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG \
+    --wal-recovery-mode skip_any_corrupted_record \
+    --limit-ledger-size\
+    --log -
 ```
