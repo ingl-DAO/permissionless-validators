@@ -51,11 +51,19 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 source "$HOME/.cargo/env"
 ```
+```
+sudo apt install build-essential
+```
 
 #### Install Cargo-x:
 ```
 cargo install cargo-x
 ```
+#### Installing Git:
+```
+sudo apt install git
+```
+
 #### Clone this repo:
 ```
 git clone https://github.com/ingl-DAO/permissionless-validators
