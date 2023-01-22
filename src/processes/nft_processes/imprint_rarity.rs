@@ -33,7 +33,7 @@ pub fn process_imprint_rarity(
     log_level: u8,
     clock_is_from_account: bool,
 ) -> ProgramResult {
-    log!(log_level, 4, "Imprint rarity...");
+    log!(log_level, 4, "Imprint nft rarity ...");
     let account_info_iter = &mut accounts.iter();
     let payer_account_info = next_account_info(account_info_iter)?;
     let nft_account_info = next_account_info(account_info_iter)?;
@@ -44,8 +44,11 @@ pub fn process_imprint_rarity(
     let nft_edition_account_info = next_account_info(account_info_iter)?;
     let ingl_config_account_info = next_account_info(account_info_iter)?;
     let uris_account_info = next_account_info(account_info_iter)?;
+    let token_program_account_info = next_account_info(account_info_iter)?;
 
+    log!(log_level, 0, "Done retrieving accounts infos");
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
+    log!(log_level, 0, "verifying nft accounts infos ....");
     verify_nft_ownership(
         payer_account_info,
         mint_account_info,
@@ -53,7 +56,7 @@ pub fn process_imprint_rarity(
         associated_token_account_info,
         program_id,
     )?;
-
+    log!(log_level, 0, "Done verifying nft accounts infos");
     payer_account_info
         .assert_signer()
         .error_log("Error: @payer_account_info")?;
@@ -80,6 +83,7 @@ pub fn process_imprint_rarity(
     )
     .error_log("Error: Invalid NFT Account")?;
 
+    log!(log_level, 0, "Checking deserialized data...");
     if (clock_data.unix_timestamp as u32)
         < nft_data
             .rarity_seed_time
@@ -90,11 +94,11 @@ pub fn process_imprint_rarity(
     if let Some(_) = nft_data.rarity {
         Err(ProgramError::InvalidAccountData).error_log("Rarity has already been imprinted")?
     }
+    log!(log_level, 2, "Done Checking deserialized data !!!");
 
     let (mint_authority_key, mint_authority_bump) = freeze_authority_account_info
         .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])
         .error_log("@mint_authority_accoun_info")?;
-
     let mpl_token_metadata_id = mpl_token_metadata::id();
     let (nft_edition_key, _nft_edition_bump) = Pubkey::find_program_address(
         &[
@@ -136,6 +140,7 @@ pub fn process_imprint_rarity(
             associated_token_account_info.clone(),
             nft_edition_account_info.clone(),
             mint_account_info.clone(),
+            token_program_account_info.clone(),
         ],
         &[&[INGL_MINT_AUTHORITY_KEY.as_ref(), &[mint_authority_bump]]],
     )
