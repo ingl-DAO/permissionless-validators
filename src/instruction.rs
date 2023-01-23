@@ -49,8 +49,8 @@ pub enum InstructionEnum {
     },
     NFTWithdraw {
         //Tested
-        cnt: u8,
         log_level: u8,
+        cnt: u8,
     },
     ProcessRewards {
         //Tested

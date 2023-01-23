@@ -140,7 +140,6 @@ pub fn nft_withdraw(
         ],
         &[&[
             AUTHORIZED_WITHDRAWER_KEY.as_ref(),
-            vote_account_info.key.as_ref(),
             &[authorized_withdrawer_bump],
         ]],
     )
@@ -170,6 +169,13 @@ pub fn calculate_total_reward(
     };
     //TODO: users could delegate right before the end of an epoch, then after the epoch ends, they could run process_rewards, then run the withdraw function. This could be a problem on validators that have no early redemption fees. This could be an abuse of the system. A solution might be to make sure than x.epoch_number > 1 + interested_epoch, find x in the line below.
     let interested_index = general_data.vote_rewards.iter().position(|x| x.epoch_number > interested_epoch).error_log("Error: couldn't find an epoch greater than both the last delegation epoch and the last withdrrawal epoch.")?;
+    log!(
+        log_level,
+        1,
+        "interested_index: {:?}, interested_epoch: {:?}",
+        interested_index,
+        interested_epoch
+    );
     let mut total_reward: u128 = 0;
     for i in interested_index..general_data.vote_rewards.len() {
         let epoch_reward = general_data.vote_rewards[i];
@@ -177,12 +183,11 @@ pub fn calculate_total_reward(
         total_reward = total_reward
             .checked_add(
                 (epoch_reward
-                    .nft_holders_reward
-                    .checked_div(epoch_reward.total_stake as u64)
+                    .nft_holders_reward as u128).checked_mul(config_data.unit_backing as u128)
+                    .error_log("Error @ unit backing multiplication")?
+                    .checked_div(epoch_reward.total_stake as u128)
                     .error_log("Error calculating unit reward for an epoch")?
-                    as u128)
-                    .checked_mul(config_data.unit_backing as u128)
-                    .error_log("Error @ unit backing multiplication")?,
+                    as u128
             )
             .error_log("Error: total_reward")?;
     }
