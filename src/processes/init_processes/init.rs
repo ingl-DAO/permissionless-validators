@@ -1,19 +1,17 @@
-use anchor_lang::{prelude::next_account_info, AnchorSerialize};
-use mpl_token_metadata::state::{Creator, PREFIX};
-use solana_program::{
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    program::{invoke, invoke_signed},
-    pubkey::Pubkey,
-    system_instruction, system_program, sysvar,
-};
-use spl_associated_token_account::get_associated_token_address_with_program_id;
-
 use crate::{
     instruction::register_program_instruction,
     log,
     state::{constants::*, GeneralData, UrisAccount, ValidatorConfig},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
+};
+use borsh::{BorshSerialize};
+use mpl_token_metadata::state::{Creator, PREFIX};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint::ProgramResult,
+    program::{invoke, invoke_signed},
+    pubkey::Pubkey,
+    system_instruction, system_program, sysvar,
 };
 
 pub fn process_init(

@@ -1,7 +1,7 @@
 use crate::{
     error::InglError,
     log,
-    state::{constants::*, FundsLocation, GeneralData, NftData},
+    state::{constants::*, FundsLocation, GeneralData, NftData, ValidatorConfig},
     utils::{
         get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, OptionExt,
         ResultExt,
@@ -22,7 +22,7 @@ use solana_program::{
 pub fn nft_withdraw(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    cnt: usize,
+    cnt: u8,
     log_level: u8,
     clock_is_from_account: bool,
     rent_is_from_account: bool,
@@ -37,6 +37,7 @@ pub fn nft_withdraw(
     let payer_account_info = next_account_info(account_info_iter)?;
     let vote_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
+    let config_account_info = next_account_info(account_info_iter)?;
     let authorized_withdrawer_info = next_account_info(account_info_iter)?;
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
@@ -48,7 +49,7 @@ pub fn nft_withdraw(
         .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("Error: failed to assert pda input for general_account_info")?;
     vote_account_info
-        .assert_key_match(&vote::program::id())
+        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
         .error_log("Error: vote_account_info must be the expected pda")?;
     vote_account_info
         .assert_owner(&vote::program::id())
@@ -56,7 +57,12 @@ pub fn nft_withdraw(
     general_account_info
         .assert_owner(program_id)
         .error_log("Error: general_account_info must be owned by the program")?;
+    config_account_info
+        .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
+        .error_log("Error @ Config account pda assertion")?;
+
     let general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
 
     let (_authorized_withdrawer, authorized_withdrawer_bump) = authorized_withdrawer_info
         .assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])
@@ -76,9 +82,9 @@ pub fn nft_withdraw(
 
         verify_nft_ownership(
             payer_account_info,
-            mint_account_info, //@Cyrial why are you collecting account you don't use
+            mint_account_info,
             nft_account_data_info,
-            associated_token_account_info, //@Cyrial why are you collecting account you don't use
+            associated_token_account_info,
             program_id,
         )
         .error_log("Error @ nft ownership verification")?;
@@ -111,8 +117,9 @@ pub fn nft_withdraw(
         nft_account_data_info
             .realloc(new_space, false)
             .error_log("Error: @realloc of nft_account_data_info")?;
-        let total_reward = calculate_total_reward(&ingl_nft_data, &general_data, log_level)
-            .error_log("Error: @calculate_total_reward")?;
+        let total_reward =
+            calculate_total_reward(&ingl_nft_data, &general_data, &config_data, log_level)
+                .error_log("Error: @calculate_total_reward")?;
         ingl_nft_data.last_withdrawal_epoch = Some(clock_data.epoch);
         ingl_nft_data.all_withdraws.push(total_reward as u64);
         general_rewards = general_rewards.checked_add(total_reward as u64).unwrap();
@@ -147,6 +154,7 @@ pub fn nft_withdraw(
 pub fn calculate_total_reward(
     nft_account_data: &NftData,
     general_data: &GeneralData,
+    config_data: &ValidatorConfig,
     log_level: u8,
 ) -> Result<u128, ProgramError> {
     let interested_epoch = if let Some(tmp) = nft_account_data.last_withdrawal_epoch {
@@ -168,11 +176,13 @@ pub fn calculate_total_reward(
         log!(log_level, 1, "epoch_reward: {:?}", epoch_reward);
         total_reward = total_reward
             .checked_add(
-                epoch_reward
+                (epoch_reward
                     .nft_holders_reward
-                    .checked_div(epoch_reward.total_stake.into())
+                    .checked_div(epoch_reward.total_stake as u64)
                     .error_log("Error calculating unit reward for an epoch")?
-                    .into(),
+                    as u128)
+                    .checked_mul(config_data.unit_backing as u128)
+                    .error_log("Error @ unit backing multiplication")?,
             )
             .error_log("Error: total_reward")?;
     }
