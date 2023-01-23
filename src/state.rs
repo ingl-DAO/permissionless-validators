@@ -536,28 +536,6 @@ pub fn get_feeds(network: &Network) -> Vec<Pubkey> {
     return feeds;
 }
 
-#[derive(BorshDeserialize, Debug, Eq, PartialEq, Hash, BorshSerialize, Clone)]
-pub enum Rarity {
-    Common,
-    Uncommon,
-    Rare,
-    Exalted,
-    Mythic,
-}
-
-impl Rarity {
-    pub fn from_u8(rarity: u8) -> Self {
-        match rarity {
-            0 => Self::Common,
-            1 => Self::Uncommon,
-            2 => Self::Rare,
-            3 => Self::Exalted,
-            4 => Self::Mythic,
-            _ => panic!("Invalid Rarity"),
-        }
-    }
-}
-
 pub enum LogColors {
     Red,
     Green,
@@ -761,14 +739,4 @@ pub enum UpgradeableLoaderState {
         // The raw program data follows this serialized structure in the
         // account's data.
     },
-}
-
-#[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize, Default)]
-pub struct VrfClientState {
-    pub bump: u8,
-    pub max_result: u64,
-    pub result_buffer: [u8; 32],
-    pub result: u128,
-    pub timestamp: i64,
-    pub vrf: Pubkey,
 }

@@ -2,7 +2,7 @@ use crate::{
     error::InglError,
     processes::rewards_processes::nft_withdraw::nft_withdraw,
     state::{constants::*, FundsLocation, GeneralData, NftData, ValidatorConfig},
-    utils::{verify_nft_ownership, AccountInfoHelpers, OptionExt, ResultExt},
+    utils::{verify_nft_ownership, AccountInfoHelpers, OptionExt, ResultExt}, log,
 };
 
 use borsh::BorshSerialize;
@@ -11,13 +11,14 @@ use solana_program::{
     entrypoint::ProgramResult,
     pubkey::Pubkey,
 };
-pub fn undelegate_gem(
+pub fn undelegate_nft(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     log_level: u8,
     clock_is_from_account: bool,
     rent_is_from_account: bool,
 ) -> ProgramResult {
+    log!(log_level, 4, "Undelegate nft...");
     let account_info_iter = &mut accounts.iter();
     let payer_account_info = next_account_info(account_info_iter)?;
     let vote_account_info = next_account_info(account_info_iter)?;
