@@ -155,7 +155,7 @@ pub fn redeem_nft(
             &[pd_pool_account_info.clone(), vote_account_info.clone()],
             &[&[PD_POOL_ACCOUNT_KEY.as_ref(), &[pd_pool_bump]]],
         )?;
-        log!(log_level, 2, "Transfered Funds to team!!!");
+        log!(log_level, 2, "Transfered Funds to vote account!!!");
     }
 
     log!(log_level, 2, "Transfering funds to user ...");

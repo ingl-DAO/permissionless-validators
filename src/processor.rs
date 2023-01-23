@@ -1,11 +1,10 @@
 use solana_program::{
-    account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    account_info::AccountInfo, entrypoint::ProgramResult,
     pubkey::Pubkey,
 };
 
 use crate::{
     instruction::InstructionEnum,
-    log,
     processes::{
         governance_processes::{
             execute_governance::execute_governance, finalize_governance::finalize_governance,
@@ -13,8 +12,11 @@ use crate::{
         },
         init_processes::{init::process_init, reset_uris::reset_uris, upload_uris::upload_uris},
         nft_processes::{
-            delegate_nft::delegate_gem, imprint_rarity::process_imprint_rarity,
-            mint_nft::process_mint_nft, undelegate_nft::undelegate_gem,
+            delegate_nft::delegate_gem,
+            imprint_rarity::process_imprint_rarity,
+            mint_nft::process_mint_nft,
+            redeem_nft::redeem_nft,
+            undelegate_nft::undelegate_nft,
         },
         rewards_processes::{
             finalize_rebalance::finalize_rebalance, init_rebalance::init_rebalance,
@@ -146,16 +148,14 @@ pub fn process_instruction(
         }
 
         InstructionEnum::UnDelegateNFT { log_level } => {
-            undelegate_gem(program_id, accounts, log_level, false, false)?;
+            undelegate_nft(program_id, accounts, log_level, false, false)?;
         }
 
         InstructionEnum::DelegateNFT { log_level } => {
             delegate_gem(program_id, accounts, log_level, false)?;
         }
-
-        _ => {
-            log!(0, 5, "Instruction not yet Implemented");
-            return Err(ProgramError::InvalidInstructionData);
+        InstructionEnum::Redeem { log_level } => {
+            redeem_nft(program_id, accounts, log_level, false)?
         }
     }
 
