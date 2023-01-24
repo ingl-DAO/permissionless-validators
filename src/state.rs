@@ -175,11 +175,11 @@ impl ValidatorConfig {
                 .utilize("Initial redemption fee must be less than 25%"))?
         }
         if self.unit_backing < get_min_stake_account_lamports() {
-            Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1 Sol"))?
+            Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1.03 Sol"))?
         }
-        if self.max_primary_stake < get_min_stake_account_lamports() {
+        if self.max_primary_stake < self.unit_backing {
             Err(InglError::InvalidConfigData
-                .utilize("Max primary stake must be greater than 1 Sol"))?
+                .utilize("Max primary stake must be greater unit backing."))?
         }
         if self.validation_phrase != constants::INGL_CONFIG_VAL_PHRASE {
             Err(InglError::InvalidConfigData.utilize("Validation phrase is incorrect"))?
