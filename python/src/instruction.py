@@ -44,6 +44,7 @@ InstructionEnum = Enum(
     "VoteGovernance" / CStruct("numeration" / U32, "vote"/Bool, "cnt"/U8, "log_level"/U8),
     "FinalizeGovernance" / CStruct("numeration"/U32, "log_level"/U8),
     "ExecuteGovernance" / CStruct("numeration"/U32, "log_level"/U8),
+    "InjectTestingData" / CStruct("num_mints"/U8, "log_level"/U8),
     
     enum_name = "InstructionEnum",
 )

@@ -888,3 +888,39 @@ async def init_registry(payer_keypair: KeypairInput, client: AsyncClient,) -> st
     except Exception as e:
         print(t_dets, e)
         raise e
+
+async def inject_testing_data(payer_keypair: KeypairInput, mints: List[Pubkey], client: AsyncClient, log_level: int = 0) -> str:
+    authorized_withdrawer_key, _authorized_withdrawer_bump = Pubkey.find_program_address([bytes(ingl_constants.AUTHORIZED_WITHDRAWER_KEY, 'UTF-8')], get_program_id())
+    general_account_key, _general_account_bump = Pubkey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
+
+    payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
+    general_account_meta = AccountMeta(general_account_key, False, True)
+    sys_program_meta = AccountMeta(system_program.SYS_PROGRAM_ID, False, False)
+    authorized_withdrawer_meta = AccountMeta(authorized_withdrawer_key, False, True)
+
+    accounts = [
+        payer_account_meta,
+        general_account_meta,
+        authorized_withdrawer_meta,
+
+    ]
+
+    for mint_pubkey in mints:
+        accounts.append(AccountMeta(mint_pubkey.public_key, False, False))
+        nft_account_pubkey, _nft_account_bump = Pubkey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey.public_key)], get_program_id())
+        accounts.append(AccountMeta(nft_account_pubkey, False, True))
+
+
+
+
+    accounts.append(sys_program_meta)
+    # print(accounts)
+    data = InstructionEnum.build(InstructionEnum.enum.InjectTestingData(log_level = log_level, num_mints = len(mints)))
+    transaction = Transaction()
+    transaction.add(Instruction(accounts = accounts, program_id = get_program_id(), data = data))
+    try:
+        t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
+        await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+    except Exception as e:
+        return(f"[warning]Error: {e}[/warning]")

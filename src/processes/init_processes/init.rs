@@ -1,18 +1,17 @@
-use anchor_lang::{prelude::next_account_info, AnchorSerialize};
-use mpl_token_metadata::state::{Creator, PREFIX};
-use solana_program::{
-    account_info::AccountInfo,
-    entrypoint::ProgramResult,
-    program::{invoke, invoke_signed},
-    pubkey::Pubkey,
-    system_instruction, system_program, sysvar,
-};
-
 use crate::{
     instruction::register_program_instruction,
     log,
     state::{constants::*, GeneralData, UrisAccount, ValidatorConfig},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
+};
+use borsh::{BorshSerialize};
+use mpl_token_metadata::state::{Creator, PREFIX};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint::ProgramResult,
+    program::{invoke, invoke_signed},
+    pubkey::Pubkey,
+    system_instruction, system_program, sysvar,
 };
 
 pub fn process_init(
@@ -79,8 +78,21 @@ pub fn process_init(
     let (uri_account_key, uri_account_bump) = uris_account_info
         .assert_seed(program_id, &[URIS_ACCOUNT_SEED])
         .error_log("Error @ Uris Account Seed Assertion")?;
-    system_program_account_info.assert_key_match(&system_program::id())?;
-    spl_token_program_account_info.assert_key_match(&spl_token::id())?;
+    system_program_account_info
+        .assert_key_match(&system_program::id())
+        .error_log("Error @ system_program_account_info Assertion")?;
+    spl_token_program_account_info
+        .assert_key_match(&spl_token::id())
+        .error_log("Error @ spl_token_program_account_info Assertion")?;
+    registry_program_config_account
+        .assert_owner(&program_registry::id())
+        .error_log("Error @ registry_program_config_account Assertion")?;
+    this_program_account_info
+        .assert_key_match(program_id)
+        .error_log("Error @ this_program_account_info Assertion")?;
+    team_account_info
+        .assert_key_match(&team::id())
+        .error_log("Error @ team_account_info Assertion")?;
 
     let create_collection_accounts = &[
         payer_account_info.clone(),

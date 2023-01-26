@@ -124,7 +124,6 @@ pub fn get_min_stake_account_lamports() -> u64 {
 
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
 #[validation_phrase(crate::state::constants::INGL_CONFIG_VAL_PHRASE)]
-///Creation Size: 15 + 4 + 4 + 4 + len(discord_invite) + len(twitter_handle) + len(validator_name)
 pub struct ValidatorConfig {
     pub validation_phrase: u32,
     pub is_validator_id_switchable: bool,
@@ -176,11 +175,11 @@ impl ValidatorConfig {
                 .utilize("Initial redemption fee must be less than 25%"))?
         }
         if self.unit_backing < get_min_stake_account_lamports() {
-            Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1 Sol"))?
+            Err(InglError::InvalidConfigData.utilize("Unit backing must be greater than 1.03 Sol"))?
         }
-        if self.max_primary_stake < get_min_stake_account_lamports() {
+        if self.max_primary_stake < self.unit_backing {
             Err(InglError::InvalidConfigData
-                .utilize("Max primary stake must be greater than 1 Sol"))?
+                .utilize("Max primary stake must be greater unit backing."))?
         }
         if self.validation_phrase != constants::INGL_CONFIG_VAL_PHRASE {
             Err(InglError::InvalidConfigData.utilize("Validation phrase is incorrect"))?
@@ -290,7 +289,6 @@ impl ValidatorConfig {
 
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
 #[validation_phrase(crate::state::constants::URIS_ACCOUNT_VAL_PHRASE)]
-///Creation Size: 16
 pub struct UrisAccount {
     pub validation_phrase: u32,
     ///This vector is used to define rarity of NFTs.
@@ -394,14 +392,13 @@ impl UrisAccount {
 }
 
 #[derive(BorshDeserialize, Copy, Clone, PartialEq, Debug, BorshSerialize)]
-///Creation Size: 32 bytes.
 /// This Stores the Cummulative of rewards for a specific vote account for the epoch the process_rewards instruction was run.
 pub struct VoteReward {
     /// This is the epoch the reward was earned.
     pub epoch_number: u64,
     /// This is the amount of rewards earned.
     pub total_reward: u64,
-    /// This is the total primary staked nft sol of the vote account.
+    /// This is the total primary staked nft sol of the vote account before the process_rewards.
     pub total_stake: u64,
     /// This is the total reward that will be distributed to primary stakers.
     pub nft_holders_reward: u64,
@@ -441,14 +438,13 @@ impl Default for RebalancingData {
 
 #[derive(BorshSerialize, BorshDeserialize, Validate)]
 #[validation_phrase(crate::state::constants::GENERAL_ACCOUNT_VAL_PHRASE)]
-///Creation Size: 90 Bytes
 pub struct GeneralData {
     pub validation_phrase: u32,
     pub mint_numeration: u32,
     pub pending_delegation_total: u64,
     pub dealloced: u64,
     pub total_delegated: u64,
-    pub last_withdraw_epoch: u64,
+    pub last_withdraw_epoch: u64, //TODO: This isn't necessary right? What are the intentions behind this
     pub last_total_staked: u64,
     pub is_t_stake_initialized: bool,
     pub proposal_numeration: u32,

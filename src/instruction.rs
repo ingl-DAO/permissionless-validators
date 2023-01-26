@@ -13,13 +13,16 @@ use crate::state::{constants, GovernanceType, VoteAuthorize, VoteInit, VoteState
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
-    MintNft { // Tested
+    MintNft {
+        // Tested
         log_level: u8,
     },
-    ImprintRarity { //Untested
+    ImprintRarity {
+        //Tested
         log_level: u8,
     },
-    Init { //Tested
+    Init {
+        //Tested
         log_level: u8,
         init_commission: u8,
         max_primary_stake: u64,
@@ -40,57 +43,76 @@ pub enum InstructionEnum {
         website: String,
         default_uri: String,
     },
-    Redeem { //Untested
+    Redeem {
+        //Tested
         log_level: u8,
     },
-    NFTWithdraw { //Tested
-        cnt: usize,
+    NFTWithdraw {
+        //Tested
+        log_level: u8,
+        cnt: u8,
+    },
+    ProcessRewards {
+        //Tested
         log_level: u8,
     },
-    ProcessRewards { //Tested
+    InitRebalance {
+        //Tested
         log_level: u8,
     },
-    InitRebalance { //Tested
+    FinalizeRebalance {
+        //Tested
         log_level: u8,
     },
-    FinalizeRebalance { //Tested
-        log_level: u8,
-    },
-    UploadUris { //Tested
+    UploadUris {
+        //Tested
         uris: Vec<String>,
         rarity: u8,
         log_level: u8,
     },
-    ResetUris { //Tested
+    ResetUris {
+        //Tested
         log_level: u8,
     },
-    UnDelegateNFT { //Tested
+    UnDelegateNFT {
+        //Tested
         log_level: u8,
     },
-    DelegateNFT { //Tested
+    DelegateNFT {
+        //Tested
         log_level: u8,
     },
-    CreateVoteAccount { //Tested
+    CreateVoteAccount {
+        //Tested
         log_level: u8,
     },
-    InitGovernance { //Tested
+    InitGovernance {
+        //Tested
         governance_type: GovernanceType,
         title: String,
         description: String,
         log_level: u8,
     },
-    VoteGovernance { //Tested
+    VoteGovernance {
+        //Tested
         numeration: u32,
         vote: bool,
         cnt: u8,
         log_level: u8,
     },
-    FinalizeGovernance { //Untested
+    FinalizeGovernance {
+        //Untested
         numeration: u32,
         log_level: u8,
     },
-    ExecuteGovernance { //Untested
+    ExecuteGovernance {
+        //Untested
         numeration: u32,
+        log_level: u8,
+    },
+    InjectTestingData {
+        //Untested
+        num_mints: u8,
         log_level: u8,
     },
 }

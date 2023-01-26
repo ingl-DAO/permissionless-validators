@@ -3,3 +3,4 @@ deploy/
 __pycache__/
 Cargo.lock
 upload_programs.py
+testing.ipynb

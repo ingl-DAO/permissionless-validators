@@ -498,6 +498,33 @@ async def process_get_vote_key(program_id):
     print("Vote Account Bump: ", expected_vote_bump)
     return
 
+@click.command(name ="inject_test")
+@click.argument("num_mints", type=int)
+@click.option('--keypair', '-k', default = get_keypair_path(), help="Enter the path to the keypair that will be used to sign this transaction. Defaults to the set config keypair")
+@click.option('--log_level', '-l', default = 2, type=int, help="Precise Log_level you want the transaction to be logged at, and above(0 -> 5). 0: All logs,  ... 5: Only Errors")
+async def process_inject_test(keypair, num_mints, log_level):
+    client = AsyncClient(rpc_url.target_network)
+    client_state = await client.is_connected()
+    print("Client is connected" if client_state else "Client is Disconnected")
+    try:
+        payer_keypair = parse_keypair_input(keypair)
+    except Exception as e:
+        print("Invalid Keypair Input, ", e)
+        return
+
+    mints = []
+    for i in range(num_mints):
+        while True:
+            try:
+                mints.append(parse_pubkey_input(click.prompt(f"Enter the Mint Address for Mint {i+1}", type=str)).pubkey)
+                break
+            except Exception as e:
+                print("Invalid Mint Address, ", e)
+
+    t_dets = await inject_testing_data(payer_keypair, mints, client, log_level= log_level)
+    print(t_dets)
+    await client.close()
+
 entry.add_command(mint)
 entry.add_command(initialize_rebalancing)
 entry.add_command(finalize_rebalancing)
@@ -515,5 +542,7 @@ entry.add_command(process_upload_uris)
 entry.add_command(process_reset_uris)
 entry.add_command(process_initialize_registry)
 entry.add_command(process_get_vote_key)
+entry.add_command(process_inject_test)
+
 if __name__ == '__main__':
     entry()
