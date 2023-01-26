@@ -69,18 +69,14 @@ source "$HOME/.cargo/env"
 sudo apt install build-essential
 ```
 
-> > > > > > > a5e3c77743f75445cb7b60cdd5667896441ddc56
-
 #### Install Cargo-x:
 
 ```
 cargo install cargo-x
 ```
-
-# <<<<<<< HEAD
-
 #### Installing Git:
-
+```
+sudo apt install git
 ```
 
 #### Clone this repo:
@@ -229,7 +225,5 @@ solana-validator \
  --wal-recovery-mode skip_any_corrupted_record \
  --limit-ledger-size\
  --log -
-
-```
 
 ```
