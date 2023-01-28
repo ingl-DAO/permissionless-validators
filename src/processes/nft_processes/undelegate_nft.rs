@@ -12,7 +12,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     pubkey::Pubkey,
 };
-pub fn undelegate_nft(
+pub fn undelegate_nft( // TODO: prevent Undelegation while this NFT's vote is still countable in a non-finalized proposal. i.e. remove all votes on non-finalized proposals before undelegating.
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     log_level: u8,

@@ -2,7 +2,7 @@ use crate::{
     error::InglError,
     instruction::split,
     log,
-    state::{constants::*, GeneralData, ValidatorConfig},
+    state::{constants::*, GeneralData},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
@@ -30,7 +30,6 @@ pub fn init_rebalance(
     log!(log_level, 4, "initializing init_rebalance ...");
     let account_info_iter = &mut accounts.iter();
     let _payer_account_info = next_account_info(account_info_iter)?;
-    let validator_account_info = next_account_info(account_info_iter)?;
     let t_stake_account_info = next_account_info(account_info_iter)?;
     let pd_pool_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
@@ -38,7 +37,9 @@ pub fn init_rebalance(
     let sysvar_rent_info = next_account_info(account_info_iter)?;
     let stake_account_info = next_account_info(account_info_iter)?;
     let t_withdraw_info = next_account_info(account_info_iter)?;
-    let config_account_info = next_account_info(account_info_iter)?;
+    let vote_account_info = next_account_info(account_info_iter)?;
+    let stake_history_account_info = next_account_info(account_info_iter)?;
+    let stake_config_account_info = next_account_info(account_info_iter)?;
 
     log!(log_level, 0, "done with account collection");
 
@@ -57,10 +58,12 @@ pub fn init_rebalance(
     let (_expected_t_withdraw_key, t_withdraw_bump) = t_withdraw_info
         .assert_seed(program_id, &[T_WITHDRAW_KEY.as_ref()])
         .error_log("failed to assert t_withdraw_info")?;
-    let (_expected_config_key, _config_account_bump) = config_account_info
-        .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
-        .error_log("failed to assert config_account_info")?;
+    let (_expected_vote_key, _expected_vote_bump) = vote_account_info
+        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
+        .error_log("failed to assert vote_account_info")?;
 
+    stake_history_account_info.assert_key_match(&solana_program::sysvar::stake_history::id())?;
+    stake_config_account_info.assert_key_match(&stake::config::id())?;
     general_account_info
         .assert_owner(program_id)
         .error_log("failed to assert general_account_info program ownership")?;
@@ -73,15 +76,7 @@ pub fn init_rebalance(
     t_withdraw_info
         .assert_owner(&solana_program::system_program::id())
         .error_log("Error: @ asserting t_withdraw_info ownership")?;
-    config_account_info
-        .assert_owner(program_id)
-        .error_log("Error: @ asserting config_account_info ownership")?;
     let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
-    let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
-
-    validator_account_info
-        .assert_key_match(&config_data.validator_id)
-        .error_log("Failed to assert validator account info")?;
 
     sysvar_clock_info.assert_key_match(&sysvar::clock::id())?;
     sysvar_rent_info.assert_key_match(&sysvar::rent::id())?;
@@ -164,6 +159,25 @@ pub fn init_rebalance(
             )
             .error_log("failed to initialize the t_stake account")?;
             log!(log_level, 2, "Stake initialized!!!");
+
+            log!(log_level, 2, "Delegating stake");
+            invoke_signed(
+                &solana_program::stake::instruction::delegate_stake(
+                    t_stake_account_info.key,
+                    pd_pool_account_info.key,
+                    vote_account_info.key,
+                ),
+                &[
+                    t_stake_account_info.clone(),
+                    vote_account_info.clone(),
+                    sysvar_clock_info.clone(),
+                    stake_history_account_info.clone(),
+                    stake_config_account_info.clone(),
+                    pd_pool_account_info.clone(),
+                ],
+                &[&[PD_POOL_ACCOUNT_KEY.as_ref(), &[pd_pool_bump]]],
+            )?;
+            log!(log_level, 2, "Done delegating stake");
 
             general_data.is_t_stake_initialized = true;
             general_data.pending_delegation_total = 0;
