@@ -1,8 +1,9 @@
 use crate::{
     error::InglError,
+    log,
     processes::rewards_processes::nft_withdraw::nft_withdraw,
     state::{constants::*, FundsLocation, GeneralData, NftData, ValidatorConfig},
-    utils::{verify_nft_ownership, AccountInfoHelpers, OptionExt, ResultExt}, log,
+    utils::{verify_nft_ownership, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
 use borsh::BorshSerialize;
@@ -59,6 +60,7 @@ pub fn undelegate_nft(
         payer_account_info.clone(),
         vote_account_info.clone(),
         general_account_info.clone(),
+        config_account_info.clone(),
         authorized_withdrawer_info.clone(),
     ];
     if clock_is_from_account {
