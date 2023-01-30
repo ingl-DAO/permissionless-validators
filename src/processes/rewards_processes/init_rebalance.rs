@@ -280,9 +280,7 @@ pub fn init_rebalance(
             general_data.rebalancing_data.unclaimed_validator_rewards = 0;
 
             general_data.last_total_staked = stake_account_info
-                .lamports()
-                .checked_sub(split_lamports)
-                .error_log("Error: @calculating last_total_staked")?;
+                .lamports();
         } else {
             log!(
                 log_level,
