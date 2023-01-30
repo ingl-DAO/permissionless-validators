@@ -21,7 +21,6 @@ use solana_program::{
     system_instruction,
     sysvar::{self},
 };
-
 pub fn init_rebalance(
     program_id: &Pubkey,
     accounts: &[AccountInfo],

@@ -731,7 +731,7 @@ pub enum UpgradeableLoaderState {
         /// Slot that the program was last modified.
         slot: u64,
         /// Address of the Program's upgrade authority.
-        upgrade_authority_address: Option<Pubkey>,
+        upgrade_authority_address: Option<Pubkey>, // TODO: Check that the upgrade_authority_address is a signer during intialization.
         // The raw program data follows this serialized structure in the
         // account's data.
     },
