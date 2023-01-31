@@ -279,8 +279,7 @@ pub fn init_rebalance(
             general_data.rebalancing_data.pending_validator_rewards = val_owners_lamports;
             general_data.rebalancing_data.unclaimed_validator_rewards = 0;
 
-            general_data.last_total_staked = stake_account_info
-                .lamports();
+            general_data.last_total_staked = stake_account_info.lamports();
         } else {
             log!(
                 log_level,

@@ -11,8 +11,9 @@ use solana_program::{
     entrypoint::ProgramResult,
     program::{invoke, invoke_signed},
     pubkey::Pubkey,
-    system_instruction,
+    system_instruction, program_pack::Pack,
 };
+use spl_token::state::{Account, AccountState};
 pub fn redeem_nft(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -33,6 +34,7 @@ pub fn redeem_nft(
     let config_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
     let vote_account_info = next_account_info(account_info_iter)?;
+    let mint_authority_account_info = next_account_info(account_info_iter)?;
 
     let clock_data =
         get_clock_data(account_info_iter, clock_is_from_account).error_log("sysvar_clock_data")?;
@@ -75,6 +77,10 @@ pub fn redeem_nft(
         .assert_seed(program_id, &[PD_POOL_ACCOUNT_KEY.as_ref()])
         .error_log("@assert pd pool pda")?;
 
+    let (mint_authority_key, mint_authority_bump) = mint_authority_account_info
+    .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])
+    .error_log("@mint_authority_accoun_info")?;
+
     verify_nft_ownership(
         payer_account_info,
         mint_account_info,
@@ -82,6 +88,7 @@ pub fn redeem_nft(
         associated_token_account_info,
         program_id,
     )?;
+
 
     let mpl_token_metadata_id = mpl_token_metadata::id();
 
@@ -173,6 +180,33 @@ pub fn redeem_nft(
     )
     .error_log("@invoke system_intruction transfer")?;
     log!(log_level, 2, "Transfered Funds to user!!!");
+
+    let associated_token_address_data =
+    Account::unpack(&associated_token_account_info.data.borrow())
+        .error_log("failed to unpack associated_token_account_info")?;
+
+    if let AccountState::Frozen = associated_token_address_data.state {
+        log!(log_level, 2, "Thawing the token account ...");
+        invoke_signed(
+            &mpl_token_metadata::instruction::thaw_delegated_account(
+                mpl_token_metadata_id,
+                mint_authority_key,
+                *associated_token_account_info.key,
+                edition_key,
+                *mint_account_info.key,
+            ),
+            &[
+                mint_authority_account_info.clone(),
+                associated_token_account_info.clone(),
+                edition_account_info.clone(),
+                mint_account_info.clone(),
+                spl_token_program_account_info.clone(),
+            ],
+            &[&[INGL_MINT_AUTHORITY_KEY.as_ref(), &[mint_authority_bump]]],
+        )
+        .error_log("Error: @ thawing the token account")?;
+        log!(log_level, 2, "Token account thawed !!!");
+    }
 
     log!(log_level, 2, "Burn the nft ...");
     invoke(
