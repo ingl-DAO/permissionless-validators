@@ -73,13 +73,9 @@ async def ingl_init(payer_keypair: KeypairInput, validator_pubkey: PubkeyInput, 
         storage_account_meta,
 
         system_program_meta, 
-        spl_program_meta,
-        associated_program_meta,
         associated_program_meta,
         spl_program_meta, 
         metadata_program_id,
-        metadata_program_id,
-        system_program_meta,
         registry_program_meta,
     ]
     # print(accounts)
@@ -93,7 +89,7 @@ async def ingl_init(payer_keypair: KeypairInput, validator_pubkey: PubkeyInput, 
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -171,7 +167,7 @@ async def mint_nft(payer_keypair: KeypairInput, mint_keypair: KeypairInput, clie
     try: 
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair, mint_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -209,7 +205,7 @@ async def delegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, cl
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -254,7 +250,7 @@ async def undelegate_nft(payer_keypair: KeypairInput, mint_pubkey: PubkeyInput, 
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -263,6 +259,7 @@ async def create_vote_account(validator_keypair: KeypairInput, client: AsyncClie
     expected_stake_key, _expected_stake_bump = Pubkey.find_program_address([bytes(ingl_constants.STAKE_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     config_account_pubkey, _config_account_bump = Pubkey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
     general_account_pubkey, _general_account_bump = Pubkey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
+    pd_pool_account_pubkey, _pd_pool_account_bump = Pubkey.find_program_address([bytes(ingl_constants.PD_POOL_ACCOUNT_KEY, 'UTF-8')], get_program_id())
 
     
     print(f"Vote_Account: {expected_vote_pubkey}")
@@ -278,6 +275,10 @@ async def create_vote_account(validator_keypair: KeypairInput, client: AsyncClie
     stake_program_meta = AccountMeta(ingl_constants.STAKE_PROGRAM_ID, False, False)
     config_account_meta = AccountMeta(config_account_pubkey, False, True)
     general_account_meta = AccountMeta(general_account_pubkey, False, True)
+    pd_pool_account_meta = AccountMeta(pd_pool_account_pubkey, False, False)
+    stake_history_meta = AccountMeta(STAKE_HISTORY, False, False)
+    stake_config_meta = AccountMeta(ingl_constants.STAKE_CONFIG_PROGRAM_ID, False, False)
+
 
     accounts = [
         validator_meta,
@@ -288,6 +289,9 @@ async def create_vote_account(validator_keypair: KeypairInput, client: AsyncClie
         stake_account_meta,
         config_account_meta,
         general_account_meta,
+        pd_pool_account_meta,
+        stake_history_meta,
+        stake_config_meta,
         
         sys_program_meta,
         vote_program_meta,
@@ -302,7 +306,7 @@ async def create_vote_account(validator_keypair: KeypairInput, client: AsyncClie
     try: 
         t_dets = await sign_and_send_tx(transaction, client, validator_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -312,16 +316,12 @@ async def init_rebalance(payer_keypair: KeypairInput, client: AsyncClient, log_l
     t_withdraw_key, _t_withdraw_bump = Pubkey.find_program_address([bytes(ingl_constants.T_WITHDRAW_KEY, 'UTF-8')], get_program_id())
     pd_pool_pubkey, _pd_pool_bump = Pubkey.find_program_address([bytes(ingl_constants.PD_POOL_ACCOUNT_KEY, 'UTF-8')], get_program_id())
     general_account_pubkey, _general_account_bump = Pubkey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
-    config_account_pubkey, _config_account_bump = Pubkey.find_program_address([bytes(ingl_constants.INGL_CONFIG_SEED, 'UTF-8')], get_program_id())
+    expected_vote_pubkey, _expected_vote_pubkey_nonce = Pubkey.find_program_address([bytes(ingl_constants.VOTE_ACCOUNT_KEY, "UTF-8")], get_program_id())
 
-    data = await client.get_account_info(config_account_pubkey)
-    validator_id = Pubkey(ValidatorConfig.parse(data.value.data).validator_id)
-    print(f"Validator_Id: {validator_id}")
 
     payer_account_meta = AccountMeta(payer_keypair.pubkey, True, True)
     rent_account_meta = AccountMeta(solders.sysvar.RENT, False, False)
     sysvar_clock_meta = AccountMeta(solders.sysvar.CLOCK, False, False)
-    validator_meta = AccountMeta(validator_id, True, True)
     sys_program_meta = AccountMeta(system_program.ID, False, False)
     general_account_meta = AccountMeta(general_account_pubkey, False, True)
     stake_account_meta = AccountMeta(expected_stake_key, False, True)
@@ -329,12 +329,13 @@ async def init_rebalance(payer_keypair: KeypairInput, client: AsyncClient, log_l
     t_withdraw_meta = AccountMeta(t_withdraw_key, False, True)
     pd_pool_meta = AccountMeta(pd_pool_pubkey, False, True)
     stake_program_meta = AccountMeta(ingl_constants.STAKE_PROGRAM_ID, False, False)
-    config_account_meta = AccountMeta(config_account_pubkey, False, False)
+    vote_account_meta = AccountMeta(expected_vote_pubkey, False, True)
+    stake_history_meta = AccountMeta(STAKE_HISTORY, False, False)
+    stake_config_meta = AccountMeta(ingl_constants.STAKE_CONFIG_PROGRAM_ID, False, False)
 
 
     accounts = [
         payer_account_meta,
-        validator_meta,
         t_stake_meta,
         pd_pool_meta,
         general_account_meta,
@@ -342,7 +343,9 @@ async def init_rebalance(payer_keypair: KeypairInput, client: AsyncClient, log_l
         rent_account_meta,
         stake_account_meta,
         t_withdraw_meta,
-        config_account_meta,
+        vote_account_meta,
+        stake_history_meta,
+        stake_config_meta,
 
         sys_program_meta,
         stake_program_meta,
@@ -358,7 +361,7 @@ async def init_rebalance(payer_keypair: KeypairInput, client: AsyncClient, log_l
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -376,7 +379,7 @@ async def finalize_rebalance(payer_keypair: KeypairInput, client: AsyncClient, l
 
     payer_account_meta = AccountMeta(payer_keypair.pubkey, True, True)
     sysvar_clock_meta = AccountMeta(solders.sysvar.CLOCK, False, False)
-    validator_meta = AccountMeta(validator_id, True, True)
+    validator_meta = AccountMeta(validator_id, False, True)
     stake_account_meta = AccountMeta(expected_stake_key, False, True)
     t_stake_meta = AccountMeta(t_stake_key, False, True)
     t_withdraw_meta = AccountMeta(t_withdraw_key, False, True)
@@ -409,7 +412,7 @@ async def finalize_rebalance(payer_keypair: KeypairInput, client: AsyncClient, l
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -458,7 +461,7 @@ async def process_rewards(payer_keypair: KeypairInput, client: AsyncClient, log_
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -501,7 +504,7 @@ async def nft_withdraw(payer_keypair: KeypairInput, mints: List[Pubkey], client:
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -539,7 +542,7 @@ async def inject_testing_data(payer_keypair: KeypairInput, mints: List[Pubkey], 
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -600,7 +603,7 @@ async def init_governance(payer_keypair: KeypairInput, mint: PubkeyInput, client
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -640,7 +643,7 @@ async def vote_governance(payer_keypair: KeypairInput, vote: Bool, proposal_nume
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -674,7 +677,7 @@ async def finalize_governance(payer_keypair: KeypairInput, proposal_numeration: 
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -768,7 +771,7 @@ async def execute_governance(payer_keypair: KeypairInput, proposal_numeration: i
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -797,7 +800,7 @@ async def reset_uris(payer_keypair: KeypairInput, client: AsyncClient, log_level
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"Error: {e}")
 
@@ -857,7 +860,7 @@ async def reset_uris(payer_keypair: KeypairInput, client: AsyncClient, log_level
         transaction.add(Instruction(accounts = accounts, program_id = get_program_id(), data = instruction_data))
         t_dets = await client.send_transaction(transaction, payer_keypair.keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         print(t_dets, e)
         raise e
@@ -881,10 +884,81 @@ async def init_registry(payer_keypair: KeypairInput, client: AsyncClient,) -> st
     try:
         instruction_data = RegistryEnum.build(RegistryEnum.enum.InitConfig())
         transaction = Transaction()
-        transaction.add(Instruction(accounts, ingl_constants.REGISTRY_PROGRAM_ID, instruction_data))
+        transaction.add(Instruction(accounts = accounts, program_id = ingl_constants.REGISTRY_PROGRAM_ID, data = instruction_data))
         t_dets = await client.send_transaction(transaction, payer_keypair.keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
+    except Exception as e:
+        print(t_dets, e)
+        raise e
+
+async def reset_registry(payer_keypair: KeypairInput, client: AsyncClient,) -> str:
+    config_account_key, _config_bump = Pubkey.find_program_address([b'config'], ingl_constants.REGISTRY_PROGRAM_ID)
+
+    payer_account_meta = AccountMeta(pubkey = payer_keypair.pubkey, is_signer = True, is_writable = True)
+    config_account_meta = AccountMeta(pubkey = config_account_key, is_signer = False, is_writable = True)
+    system_program_meta = AccountMeta(pubkey = system_program.ID, is_signer = False, is_writable = False)
+    t_struct = CStruct(
+        "validation_phrase" / U32,
+        "validator_numeration" / U32,
+    )
+    config_data = await client.get_account_info(config_account_key)
+    config_data = t_struct.parse(config_data.value.data)
+    storage_account_key, _config_account_bump = Pubkey.find_program_address([b'storage', (config_data.validator_numeration // 625).to_bytes(4, 'big')], ingl_constants.REGISTRY_PROGRAM_ID)
+    storage_account_meta = AccountMeta(pubkey = storage_account_key, is_signer = False, is_writable = True)
+
+
+    accounts = [
+        payer_account_meta,
+        config_account_meta,
+        storage_account_meta,
+
+        system_program_meta,
+    ]
+
+    t_dets = None
+    try:
+        instruction_data = RegistryEnum.build(RegistryEnum.enum.Reset())
+        transaction = Transaction()
+        transaction.add(Instruction(accounts = accounts, program_id = ingl_constants.REGISTRY_PROGRAM_ID, data = instruction_data))
+        t_dets = await client.send_transaction(transaction, payer_keypair.keypair)
+        await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
+    except Exception as e:
+        print(t_dets, e)
+        raise e
+
+async def register_program(payer_keypair: KeypairInput, program_key: Pubkey, client: AsyncClient,) -> str:
+    config_account_key, _config_bump = Pubkey.find_program_address([b'config'], ingl_constants.REGISTRY_PROGRAM_ID)
+    payer_account_meta = AccountMeta(pubkey = payer_keypair.pubkey, is_signer = True, is_writable = True)
+    config_account_meta = AccountMeta(pubkey = config_account_key, is_signer = False, is_writable = True)
+    registered_program_meta = AccountMeta(pubkey = program_key, is_signer = False, is_writable = False)
+    team_account_meta = AccountMeta(pubkey = ingl_constants.TEAM_ACCOUNT_KEY, is_signer = False, is_writable = True)
+    system_program_meta = AccountMeta(pubkey = system_program.ID, is_signer = False, is_writable = False)
+    
+    config_data = await client.get_account_info(config_account_key)
+    config_data = RegistryConfig.parse(config_data.value.data)
+    storage_account_key, _config_account_bump = Pubkey.find_program_address([b'storage', (config_data.validator_numeration // 625).to_bytes(4, 'big')], ingl_constants.REGISTRY_PROGRAM_ID)
+    storage_account_meta = AccountMeta(pubkey = storage_account_key, is_signer = False, is_writable = True)
+
+    accounts = [
+        payer_account_meta,
+        config_account_meta,
+        registered_program_meta,
+        team_account_meta,
+        storage_account_meta,
+
+        system_program_meta,
+    ]
+
+    t_dets = None
+    try:
+        instruction_data = RegistryEnum.build(RegistryEnum.enum.AddProgram())
+        transaction = Transaction()
+        transaction.add(Instruction(accounts = accounts, program_id = ingl_constants.REGISTRY_PROGRAM_ID, data = instruction_data))
+        t_dets = await client.send_transaction(transaction, payer_keypair.keypair)
+        await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         print(t_dets, e)
         raise e
@@ -893,9 +967,9 @@ async def inject_testing_data(payer_keypair: KeypairInput, mints: List[Pubkey], 
     authorized_withdrawer_key, _authorized_withdrawer_bump = Pubkey.find_program_address([bytes(ingl_constants.AUTHORIZED_WITHDRAWER_KEY, 'UTF-8')], get_program_id())
     general_account_key, _general_account_bump = Pubkey.find_program_address([bytes(ingl_constants.GENERAL_ACCOUNT_SEED, 'UTF-8')], get_program_id())
 
-    payer_account_meta = AccountMeta(payer_keypair.public_key, True, True)
+    payer_account_meta = AccountMeta(payer_keypair.pubkey, True, True)
     general_account_meta = AccountMeta(general_account_key, False, True)
-    sys_program_meta = AccountMeta(system_program.SYS_PROGRAM_ID, False, False)
+    sys_program_meta = AccountMeta(system_program.ID, False, False)
     authorized_withdrawer_meta = AccountMeta(authorized_withdrawer_key, False, True)
 
     accounts = [
@@ -906,8 +980,8 @@ async def inject_testing_data(payer_keypair: KeypairInput, mints: List[Pubkey], 
     ]
 
     for mint_pubkey in mints:
-        accounts.append(AccountMeta(mint_pubkey.public_key, False, False))
-        nft_account_pubkey, _nft_account_bump = Pubkey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey.public_key)], get_program_id())
+        accounts.append(AccountMeta(mint_pubkey, False, False))
+        nft_account_pubkey, _nft_account_bump = Pubkey.find_program_address([bytes(ingl_constants.NFT_ACCOUNT_CONST, 'UTF-8'), bytes(mint_pubkey)], get_program_id())
         accounts.append(AccountMeta(nft_account_pubkey, False, True))
 
 
@@ -921,6 +995,6 @@ async def inject_testing_data(payer_keypair: KeypairInput, mints: List[Pubkey], 
     try:
         t_dets = await sign_and_send_tx(transaction, client, payer_keypair)
         await client.confirm_transaction(tx_sig = t_dets.value, commitment= "finalized", sleep_seconds = 0.4, last_valid_block_height = None)
-        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+rpc_url.get_explorer_suffix()}]{str(t_dets.value)}[/link]"
+        return f"Transaction Id: [link=https://explorer.solana.com/tx/{str(t_dets.value)+get_explorer_suffix(get_network())}]{str(t_dets.value)}[/link]"
     except Exception as e:
         return(f"[warning]Error: {e}[/warning]")
