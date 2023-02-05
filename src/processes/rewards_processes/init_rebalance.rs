@@ -26,6 +26,7 @@ pub fn init_rebalance(
     accounts: &[AccountInfo],
     log_level: u8,
 ) -> ProgramResult {
+    //TODO: only allow this to be called in the latest eight of the epoch
     log!(log_level, 4, "initializing init_rebalance ...");
     let account_info_iter = &mut accounts.iter();
     let _payer_account_info = next_account_info(account_info_iter)?;

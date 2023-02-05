@@ -154,7 +154,12 @@ pub fn process_imprint_rarity(
 
     let interested_network = NETWORK;
     let history_feeds_pubkeys = get_feeds(&interested_network);
-    log!(log_level, 0, "starting history feeds loop");
+    log!(
+        log_level,
+        0,
+        "starting history feeds loop, rarity_seed_time: {}",
+        nft_data.rarity_seed_time.unwrap()
+    );
     for cnt in 0..history_feeds_pubkeys.len() {
         let history_feed_account_info = next_account_info(account_info_iter)?;
         match interested_network {

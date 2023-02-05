@@ -74,6 +74,11 @@ pub fn nft_withdraw(
 
     log!(log_level, 0, "Done with main account assertions");
     let mut general_rewards: u64 = 0;
+
+    if cnt == 0 {
+        Err(InglError::InvalidData.utilize("Gem count must be greater than 0"))?
+    }
+
     for num in 0..cnt {
         log!(log_level, 1, "gem_numeration {}", num);
         let associated_token_account_info = next_account_info(account_info_iter)?;
