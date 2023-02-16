@@ -543,6 +543,7 @@ async def process_inject_test(keypair, num_mints, log_level):
     client = AsyncClient(get_network())
     client_state = await client.is_connected()
     print("Client is connected" if client_state else "Client is Disconnected")
+    client.get_vote_accounts()
     try:
         payer_keypair = parse_keypair_input(keypair)
     except Exception as e:

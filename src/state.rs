@@ -1,14 +1,18 @@
 #![allow(unused_parens)]
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    str::FromStr,
+};
 
 use crate::{
     colored_log,
     error::InglError,
     utils::{AccountInfoHelpers, ResultExt},
 };
+use bincode::deserialize;
 use borsh::{BorshDeserialize, BorshSerialize};
 use ingl_macros::Validate;
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 use solana_program::{
     account_info::AccountInfo,
     borsh::try_from_slice_unchecked,
@@ -17,7 +21,9 @@ use solana_program::{
     native_token::LAMPORTS_PER_SOL,
     program_error::ProgramError,
     pubkey::Pubkey,
+    slot_history::Slot,
     stake::state::StakeState,
+    stake_history::Epoch,
     sysvar::{rent::Rent, Sysvar},
 };
 
@@ -136,6 +142,7 @@ pub struct ValidatorConfig {
     pub creator_royalties: u16,
     pub commission: u8,
     pub validator_id: Pubkey,
+    pub vote_account: Pubkey,
     pub governance_expiration_time: u32,
     pub default_uri: String,
     pub validator_name: String,
@@ -239,6 +246,7 @@ impl ValidatorConfig {
         creator_royalties: u16,
         commission: u8,
         validator_id: Pubkey,
+        vote_account: Pubkey,
         governance_expiration_time: u32,
         default_uri: String,
         validator_name: String,
@@ -258,6 +266,7 @@ impl ValidatorConfig {
             creator_royalties,
             commission,
             validator_id,
+            vote_account,
             governance_expiration_time,
             default_uri,
             validator_name,
@@ -700,13 +709,163 @@ pub enum VoteAuthorize {
     Withdrawer,
 }
 
-pub struct VoteState {}
+#[derive(Deserialize)]
+pub struct VoteState {
+    /// the node that votes in this account
+    pub node_pubkey: Pubkey,
+
+    /// the signer for withdrawals
+    pub authorized_withdrawer: Pubkey,
+    /// percentage (0-100) that represents what part of a rewards
+    ///  payout should be given to this VoteAccount
+    pub commission: u8,
+
+    pub votes: VecDeque<Lockout>,
+
+    // This usually the last Lockout which was popped from self.votes.
+    // However, it can be arbitrary slot, when being used inside Tower
+    pub root_slot: Option<Slot>,
+
+    /// the signer for vote transactions
+    pub authorized_voters: AuthorizedVoters,
+
+    /// history of prior authorized voters and the epochs for which
+    /// they were set, the bottom end of the range is inclusive,
+    /// the top of the range is exclusive
+    #[allow(dead_code)]
+    prior_voters: CircBuf<(Pubkey, Epoch, Epoch)>,
+
+    
+    // OTHER FIELDS OMITTED INORDER TO DESERIALIZE ON THE STACK.
+}
 impl VoteState {
     pub fn space() -> usize {
         3731
     }
     pub fn min_lamports() -> u64 {
         Rent::get().unwrap().minimum_balance(Self::space())
+    }
+    pub fn deserialize(input: &[u8]) -> Box<Self> {
+        let collected = deserialize::<VoteStateVersions>(input).unwrap();
+        Box::new(collected.convert_to_current())
+    }
+}
+
+pub type UnixTimestamp = i64;
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct BlockTimestamp {
+    pub slot: Slot,
+    pub timestamp: UnixTimestamp,
+}
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct AuthorizedVoters {
+    pub authorized_voters: BTreeMap<Epoch, Pubkey>,
+}
+impl AuthorizedVoters {
+    pub fn new(epoch: Epoch, pubkey: Pubkey) -> Self {
+        let mut authorized_voters = BTreeMap::new();
+        authorized_voters.insert(epoch, pubkey);
+        Self { authorized_voters }
+    }
+    pub fn last(&self) -> Option<(&u64, &Pubkey)> {
+        self.authorized_voters.iter().next_back()
+    }
+}
+
+#[derive(Serialize, Default, Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
+pub struct Lockout {
+    pub slot: Slot,
+    pub confirmation_count: u32,
+}
+
+#[derive(Deserialize)]
+pub enum VoteStateVersions {
+    V0_23_5(Box<VoteState0_23_5>),
+    Current(Box<VoteState>),
+}
+
+impl VoteStateVersions {
+    pub fn convert_to_current(self) -> VoteState {
+        match self {
+            VoteStateVersions::V0_23_5(state) => {
+                let authorized_voters =
+                    AuthorizedVoters::new(state.authorized_voter_epoch, state.authorized_voter);
+
+                VoteState {
+                    node_pubkey: state.node_pubkey,
+
+                    /// the signer for withdrawals
+                    authorized_withdrawer: state.authorized_withdrawer,
+
+                    /// percentage (0-100) that represents what part of a rewards
+                    ///  payout should be given to this VoteAccount
+                    commission: state.commission,
+
+                    votes: state.votes.clone(),
+
+                    root_slot: state.root_slot,
+
+                    /// the signer for vote transactions
+                    authorized_voters,
+
+                    /// history of prior authorized voters and the epochs for which
+                    /// they were set, the bottom end of the range is inclusive,
+                    /// the top of the range is exclusive
+                    prior_voters: CircBuf::default(),
+                }
+            }
+            VoteStateVersions::Current(state) => *state,
+        }
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct VoteState0_23_5 {
+    /// the node that votes in this account
+    pub node_pubkey: Pubkey,
+
+    /// the signer for vote transactions
+    pub authorized_voter: Pubkey,
+    /// when the authorized voter was set/initialized
+    pub authorized_voter_epoch: Epoch,
+
+    /// history of prior authorized voters and the epoch ranges for which
+    ///  they were set
+    pub prior_voters: CircBuf<(Pubkey, Epoch, Epoch, Slot)>,
+
+    /// the signer for withdrawals
+    pub authorized_withdrawer: Pubkey,
+    /// percentage (0-100) that represents what part of a rewards
+    ///  payout should be given to this VoteAccount
+    pub commission: u8,
+    pub votes: VecDeque<Lockout>,
+    pub root_slot: Option<u64>,
+    // OTHER FIELDS OMITTED INORDER TO DESERIALIZE ON THE STACK.
+}
+
+const MAX_ITEMS: usize = 32;
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct CircBuf<I> {
+    pub buf: [I; MAX_ITEMS],
+    /// next pointer
+    pub idx: usize,
+}
+impl<I: Default + Copy> Default for CircBuf<I> {
+    fn default() -> Self {
+        Self {
+            buf: [I::default(); MAX_ITEMS],
+            idx: MAX_ITEMS - 1,
+        }
+    }
+}
+
+impl<I> CircBuf<I> {
+    pub fn append(&mut self, item: I) {
+        // remember prior delegate and when we switched, to support later slashing
+        self.idx += 1;
+        self.idx %= MAX_ITEMS;
+
+        self.buf[self.idx] = item;
     }
 }
 
@@ -732,7 +891,7 @@ pub enum UpgradeableLoaderState {
         slot: u64,
         /// Address of the Program's upgrade authority.
         upgrade_authority_address: Option<Pubkey>, // TODO: Check that the upgrade_authority_address is a signer during intialization.
-        // The raw program data follows this serialized structure in the
-        // account's data.
+                                                   // The raw program data follows this serialized structure in the
+                                                   // account's data.
     },
 }

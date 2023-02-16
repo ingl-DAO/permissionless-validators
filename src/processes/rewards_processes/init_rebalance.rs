@@ -2,7 +2,7 @@ use crate::{
     error::InglError,
     instruction::split,
     log,
-    state::{constants::*, GeneralData},
+    state::{constants::*, GeneralData, ValidatorConfig},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
@@ -40,6 +40,7 @@ pub fn init_rebalance(
     let vote_account_info = next_account_info(account_info_iter)?;
     let stake_history_account_info = next_account_info(account_info_iter)?;
     let stake_config_account_info = next_account_info(account_info_iter)?;
+    let config_account_info = next_account_info(account_info_iter)?;
 
     log!(log_level, 0, "done with account collection");
 
@@ -58,9 +59,9 @@ pub fn init_rebalance(
     let (_expected_t_withdraw_key, t_withdraw_bump) = t_withdraw_info
         .assert_seed(program_id, &[T_WITHDRAW_KEY.as_ref()])
         .error_log("failed to assert t_withdraw_info")?;
-    let (_expected_vote_key, _expected_vote_bump) = vote_account_info
-        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
-        .error_log("failed to assert vote_account_info")?;
+    let (_config_account_key, _ca_bump) = config_account_info
+        .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
+        .error_log("failed to assert config_account_info")?;
 
     stake_history_account_info.assert_key_match(&solana_program::sysvar::stake_history::id())?;
     stake_config_account_info.assert_key_match(&stake::config::id())?;
@@ -76,7 +77,9 @@ pub fn init_rebalance(
     t_withdraw_info
         .assert_owner(&solana_program::system_program::id())
         .error_log("Error: @ asserting t_withdraw_info ownership")?;
+    let config_data = ValidatorConfig::parse(config_account_info, program_id)?;
     let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    vote_account_info.assert_key_match(&config_data.vote_account).error_log("Error @ Vote account address verification")?;
 
     sysvar_clock_info.assert_key_match(&sysvar::clock::id())?;
     sysvar_rent_info.assert_key_match(&sysvar::rent::id())?;

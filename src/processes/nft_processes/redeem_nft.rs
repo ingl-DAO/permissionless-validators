@@ -69,9 +69,6 @@ pub fn redeem_nft(
     general_account_info
         .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("@assert general_account_info")?;
-    vote_account_info
-        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
-        .error_log("@assert vote_account_info")?;
 
     let (pd_pool_id, pd_pool_bump) = pd_pool_account_info
         .assert_seed(program_id, &[PD_POOL_ACCOUNT_KEY.as_ref()])
@@ -134,6 +131,8 @@ pub fn redeem_nft(
         .error_log("@nft_account_info decode_unchecked validation")?;
     let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
     let general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+
+    vote_account_info.assert_key_match(&config_data.vote_account).error_log("Error @ Vote account address verification")?;
 
     match nft_data.funds_location {
         FundsLocation::Undelegated => {}

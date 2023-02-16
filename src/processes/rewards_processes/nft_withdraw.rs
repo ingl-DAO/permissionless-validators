@@ -49,9 +49,6 @@ pub fn nft_withdraw(
         .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("Error: failed to assert pda input for general_account_info")?;
     vote_account_info
-        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
-        .error_log("Error: vote_account_info must be the expected pda")?;
-    vote_account_info
         .assert_owner(&vote::program::id())
         .error_log("Error: vote_account_info must be owned by the vote_program")?;
     general_account_info
@@ -63,6 +60,7 @@ pub fn nft_withdraw(
 
     let general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
     let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
+    vote_account_info.assert_key_match(&config_data.vote_account).error_log("Error @ Vote account address verification")?;
 
     let (_authorized_withdrawer, authorized_withdrawer_bump) = authorized_withdrawer_info
         .assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])

@@ -1,7 +1,7 @@
 use crate::{
-    instruction::{register_program_instruction, InitArgs},
+    instruction::{register_program_instruction, vote_authorize, InitArgs},
     log,
-    state::{constants::*, GeneralData, UrisAccount, ValidatorConfig},
+    state::{constants::*, GeneralData, UrisAccount, ValidatorConfig, VoteAuthorize, VoteState},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
 use borsh::BorshSerialize;
@@ -15,7 +15,7 @@ use solana_program::{
     system_instruction, system_program, sysvar,
 };
 
-pub fn process_init(
+pub fn fractionalize(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     init_args: InitArgs,
@@ -59,6 +59,11 @@ pub fn process_init(
     let spl_token_program_account_info = next_account_info(account_info_iter)?;
     let system_program_account_info = next_account_info(account_info_iter)?;
 
+    let current_authorized_withdrawer_info = next_account_info(account_info_iter)?;
+    let pda_authorized_withdrawer_info = next_account_info(account_info_iter)?;
+    let vote_account_info = next_account_info(account_info_iter)?;
+    let sysvar_clock_account_info = next_account_info(account_info_iter)?;
+
     let registry_program_config_account = next_account_info(account_info_iter)?;
     let this_program_account_info = next_account_info(account_info_iter)?;
     let team_account_info = next_account_info(account_info_iter)?;
@@ -69,10 +74,12 @@ pub fn process_init(
 
     log!(log_level, 0, "Collected Main Accounts succesfully ... ");
 
-    payer_account_info //TODO: ensure that the payer must be upgrade authority of the program.
-        .assert_signer()
-        .error_log("Error @ Payer's Signature Assertion")?;
-
+    // payer_account_info //TODO: Ensure that the payer is the upgrade_authority of the program.
+    //     .assert_signer()
+    //     .error_log("Error @ Payer's Signature Assertion")?;
+    // payer_account_info
+    //     .assert_key_match(&initializer::id())
+    //     .error_log("Error @ Payer's Key Match Assertion")?;
     let (config_key, config_bump) = config_account_info
         .assert_seed(program_id, &[INGL_CONFIG_SEED])
         .error_log("Error @ Config Account Seed Assertion")?;
@@ -82,6 +89,7 @@ pub fn process_init(
     let (uri_account_key, uri_account_bump) = uris_account_info
         .assert_seed(program_id, &[URIS_ACCOUNT_SEED])
         .error_log("Error @ Uris Account Seed Assertion")?;
+
     this_program_data_info
         .assert_seed(
             &bpf_loader_upgradeable::id(),
@@ -112,6 +120,17 @@ pub fn process_init(
     team_account_info
         .assert_key_match(&team::id())
         .error_log("Error @ team_account_info Assertion")?;
+
+    let swap_authority_accounts = &[
+        current_authorized_withdrawer_info.clone(),
+        pda_authorized_withdrawer_info.clone(),
+        vote_account_info.clone(),
+        validator_account_info.clone(),
+        sysvar_clock_account_info.clone(),
+    ];
+
+    swap_authority(program_id, swap_authority_accounts)
+        .error_log("an error while swapping withdraw authority")?;
 
     let create_collection_accounts = &[
         payer_account_info.clone(),
@@ -242,6 +261,44 @@ pub fn process_init(
     )?;
 
     log!(log_level, 4, "Initialization completed !!!");
+    Ok(())
+}
+
+fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    let account_info_iter = &mut accounts.iter();
+    let current_withdraw_authority_info = next_account_info(account_info_iter)?;
+    let pda_withdraw_authority_info = next_account_info(account_info_iter)?;
+    let vote_account_info = next_account_info(account_info_iter)?;
+    let validator_id_info = next_account_info(account_info_iter)?;
+    let sysvar_clock_info = next_account_info(account_info_iter)?;
+
+    vote_account_info.assert_owner(&solana_program::vote::program::id())?;
+    let vote_state = VoteState::deserialize(&(vote_account_info.data.borrow()[..68]));
+
+    let expected_authority = vote_state.authorized_withdrawer;
+    validator_id_info.assert_key_match(&vote_state.node_pubkey)?;
+    validator_id_info.assert_key_match(&vote_state.authorized_voters.last().unwrap().1)?;
+
+    current_withdraw_authority_info.assert_key_match(&expected_authority)?;
+    pda_withdraw_authority_info
+        .assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])
+        .error_log("Error @ withdraw authority pda assertion")?;
+    sysvar_clock_info
+        .assert_key_match(&sysvar::clock::id())
+        .error_log("Error @ system clock key assertion")?;
+    invoke(
+        &vote_authorize(
+            vote_account_info.key,
+            current_withdraw_authority_info.key,
+            &pda_withdraw_authority_info.key,
+            VoteAuthorize::Withdrawer,
+        ),
+        &[
+            vote_account_info.clone(),
+            sysvar_clock_info.clone(),
+            current_withdraw_authority_info.clone(),
+        ],
+    )?;
     Ok(())
 }
 
