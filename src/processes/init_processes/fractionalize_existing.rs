@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{register_program_instruction, vote_authorize, InitArgs},
+    instruction::{register_program_instruction, vote_authorize, InitArgs, vote_update_commission},
     log,
     state::{constants::*, GeneralData, UrisAccount, ValidatorConfig, VoteAuthorize, VoteState},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
@@ -74,12 +74,6 @@ pub fn fractionalize(
 
     log!(log_level, 0, "Collected Main Accounts succesfully ... ");
 
-    // payer_account_info //TODO: Ensure that the payer is the upgrade_authority of the program.
-    //     .assert_signer()
-    //     .error_log("Error @ Payer's Signature Assertion")?;
-    // payer_account_info
-    //     .assert_key_match(&initializer::id())
-    //     .error_log("Error @ Payer's Key Match Assertion")?;
     let (config_key, config_bump) = config_account_info
         .assert_seed(program_id, &[INGL_CONFIG_SEED])
         .error_log("Error @ Config Account Seed Assertion")?;
@@ -89,6 +83,10 @@ pub fn fractionalize(
     let (uri_account_key, uri_account_bump) = uris_account_info
         .assert_seed(program_id, &[URIS_ACCOUNT_SEED])
         .error_log("Error @ Uris Account Seed Assertion")?;
+    let (_pda_authorized_withdrawer_key, pda_authorized_withdrawer_bump) =
+        pda_authorized_withdrawer_info
+            .assert_seed(program_id, &[AUTHORIZED_WITHDRAWER_KEY.as_ref()])
+            .error_log("Error @ PDA Authorized Withdrawer Seed Assertion")?;
 
     this_program_data_info
         .assert_seed(
@@ -131,6 +129,21 @@ pub fn fractionalize(
 
     swap_authority(program_id, swap_authority_accounts)
         .error_log("an error while swapping withdraw authority")?;
+
+        log!(log_level, 2, "Initiating commission change invocation ...");
+        invoke_signed(
+            &vote_update_commission(
+                vote_account_info.key,
+                pda_authorized_withdrawer_info.key,
+                init_commission,
+            ),
+            &[
+                vote_account_info.clone(),
+                pda_authorized_withdrawer_info.clone(),
+            ],
+            &[&[AUTHORIZED_WITHDRAWER_KEY.as_ref(), &[pda_authorized_withdrawer_bump]]],
+        )?;
+        log!(log_level, 2, "Changed Commission !!!");
 
     let create_collection_accounts = &[
         payer_account_info.clone(),

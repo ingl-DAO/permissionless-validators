@@ -728,14 +728,6 @@ pub struct VoteState {
 
     /// the signer for vote transactions
     pub authorized_voters: AuthorizedVoters,
-
-    /// history of prior authorized voters and the epochs for which
-    /// they were set, the bottom end of the range is inclusive,
-    /// the top of the range is exclusive
-    #[allow(dead_code)]
-    prior_voters: CircBuf<(Pubkey, Epoch, Epoch)>,
-
-    
     // OTHER FIELDS OMITTED INORDER TO DESERIALIZE ON THE STACK.
 }
 impl VoteState {
@@ -801,17 +793,12 @@ impl VoteStateVersions {
                     ///  payout should be given to this VoteAccount
                     commission: state.commission,
 
-                    votes: state.votes.clone(),
+                    votes: VecDeque::new(),
 
-                    root_slot: state.root_slot,
+                    root_slot: None,
 
                     /// the signer for vote transactions
                     authorized_voters,
-
-                    /// history of prior authorized voters and the epochs for which
-                    /// they were set, the bottom end of the range is inclusive,
-                    /// the top of the range is exclusive
-                    prior_voters: CircBuf::default(),
                 }
             }
             VoteStateVersions::Current(state) => *state,
@@ -838,8 +825,6 @@ pub struct VoteState0_23_5 {
     /// percentage (0-100) that represents what part of a rewards
     ///  payout should be given to this VoteAccount
     pub commission: u8,
-    pub votes: VecDeque<Lockout>,
-    pub root_slot: Option<u64>,
     // OTHER FIELDS OMITTED INORDER TO DESERIALIZE ON THE STACK.
 }
 
