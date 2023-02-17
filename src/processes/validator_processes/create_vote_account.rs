@@ -42,6 +42,9 @@ pub fn create_vote_account(
     let stake_account_info = next_account_info(account_info_iter)?;
     let config_account_info = next_account_info(account_info_iter)?;
     let general_account_info = next_account_info(account_info_iter)?;
+    let pd_pool_account_info = next_account_info(account_info_iter)?;
+    let stake_history_account_info = next_account_info(account_info_iter)?;
+    let stake_config_account_info = next_account_info(account_info_iter)?;
 
     log!(log_level, 0, "Done collecting main accounts");
 
@@ -80,8 +83,9 @@ pub fn create_vote_account(
         .assert_seed(program_id, &[STAKE_ACCOUNT_KEY.as_ref()])
         .error_log("failed to assert pda input to stake_account_info")?;
 
-    let (pd_pool_account_key, _pd_bump) =
-        Pubkey::find_program_address(&[PD_POOL_ACCOUNT_KEY.as_ref()], program_id);
+    let (pd_pool_account_key, pd_bump) = pd_pool_account_info
+        .assert_seed(program_id, &[PD_POOL_ACCOUNT_KEY.as_ref()])
+        .error_log("Error @ pd pool account info collection")?;
 
     log!(log_level, 0, "Done with main accounts assertions");
     let clock_data = get_clock_data_from_account(sysvar_clock_info)
@@ -178,6 +182,24 @@ pub fn create_vote_account(
     )
     .error_log("failed to initialize stake_account @stake_program invoke")?;
 
+    log!(log_level, 2, "Delegating stake");
+    invoke_signed(
+        &solana_program::stake::instruction::delegate_stake(
+            stake_account_info.key,
+            &pd_pool_account_key,
+            vote_account_info.key,
+        ),
+        &[
+            stake_account_info.clone(),
+            vote_account_info.clone(),
+            sysvar_clock_info.clone(),
+            stake_history_account_info.clone(),
+            stake_config_account_info.clone(),
+            pd_pool_account_info.clone(),
+        ],
+        &[&[PD_POOL_ACCOUNT_KEY.as_ref(), &[pd_bump]]],
+    )?;
+    log!(log_level, 2, "Done delegating stake");
     general_data
         .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
         .error_log("Error @ general_account data serialization")?;

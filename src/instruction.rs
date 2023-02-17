@@ -12,6 +12,29 @@ use solana_program::{
 use crate::state::{constants, GovernanceType, VoteAuthorize, VoteInit, VoteState};
 
 #[derive(BorshSerialize, BorshDeserialize)]
+pub struct InitArgs {
+    pub log_level: u8,
+    pub init_commission: u8,
+    pub max_primary_stake: u64,
+    pub nft_holders_share: u8,
+    pub initial_redemption_fee: u8,
+    pub is_validator_id_switchable: bool,
+    pub unit_backing: u64,
+    pub redemption_fee_duration: u32,
+    pub proposal_quorum: u8,
+    pub creator_royalties: u16,
+    pub governance_expiration_time: u32,
+    pub rarities: Vec<u16>,
+    pub rarity_names: Vec<String>,
+    pub twitter_handle: String,
+    pub discord_invite: String,
+    pub validator_name: String,
+    pub collection_uri: String,
+    pub website: String,
+    pub default_uri: String,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
 pub enum InstructionEnum {
     MintNft {
         // Tested
@@ -21,28 +44,7 @@ pub enum InstructionEnum {
         //Tested
         log_level: u8,
     },
-    Init {
-        //Tested
-        log_level: u8,
-        init_commission: u8,
-        max_primary_stake: u64,
-        nft_holders_share: u8,
-        initial_redemption_fee: u8,
-        is_validator_id_switchable: bool,
-        unit_backing: u64,
-        redemption_fee_duration: u32,
-        proposal_quorum: u8,
-        creator_royalties: u16,
-        governance_expiration_time: u32,
-        rarities: Vec<u16>,
-        rarity_names: Vec<String>,
-        twitter_handle: String,
-        discord_invite: String,
-        validator_name: String,
-        collection_uri: String,
-        website: String,
-        default_uri: String,
-    },
+    Init(InitArgs),
     Redeem {
         //Tested
         log_level: u8,
@@ -115,7 +117,9 @@ pub enum InstructionEnum {
         num_mints: u8,
         log_level: u8,
     },
+    FractionalizeExisting(InitArgs),
 }
+
 impl InstructionEnum {
     pub fn decode(data: &[u8]) -> Self {
         try_from_slice_unchecked(data).expect("Failed during the Desrialization of InstructionEnum")

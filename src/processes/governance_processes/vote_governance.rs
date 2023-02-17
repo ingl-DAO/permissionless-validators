@@ -1,7 +1,7 @@
 use crate::{
     error::InglError,
     log,
-    state::{constants::*, GovernanceData, NftData},
+    state::{constants::*, GovernanceData, NftData, FundsLocation},
     utils::{get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, ResultExt},
 };
 use borsh::BorshSerialize;
@@ -41,7 +41,7 @@ pub fn vote_governance(
         )
         .error_log("failed to assert pda input for proposal_account_info")?;
 
-    let mut governance_data = GovernanceData::parse(proposal_account_info, program_id)?;
+    let mut governance_data = Box::new(GovernanceData::parse(proposal_account_info, program_id)?);
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
     let rent_data = get_rent_data(account_info_iter, rent_is_from_account)?;
@@ -70,6 +70,11 @@ pub fn vote_governance(
         )?;
 
         let mut nft_data = Box::new(NftData::parse(nft_account_data_info, program_id)?);
+
+        match nft_data.funds_location{
+            FundsLocation::Delegated =>(),
+            _ => Err(InglError::InvalidFundsLocation.utilize("Funds location is not delegated"))?,
+        }
 
         log!(log_level, 0, "about to insert vote");
         governance_data.votes.insert(numeration, vote);

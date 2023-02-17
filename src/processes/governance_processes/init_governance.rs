@@ -54,9 +54,6 @@ pub fn create_governance(
         program_id,
     )?;
 
-    vote_account_info
-        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
-        .error_log("failed at vote account seed assertion")?;
     general_account_info
         .assert_seed(program_id, &[GENERAL_ACCOUNT_SEED.as_ref()])
         .error_log("failed at general account seed assertion")?;
@@ -71,6 +68,8 @@ pub fn create_governance(
         .error_log("failed at config account owner assertion")?;
 
     let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
+    
+    vote_account_info.assert_key_match(&config_data.vote_account).error_log("Error @ Vote account address verification")?;
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
 
@@ -185,6 +184,7 @@ pub fn create_governance(
     .error_log("failed to transfer spam prevention sol")?;
     log!(log_level, 2, "Transferred Spam prevention Sol !!!");
 
+    general_account_data.unfinalized_proposals.insert(general_account_data.proposal_numeration);
     general_account_data.proposal_numeration += 1;
     log!(log_level, 0, "Serializing data ...");
     governance_data

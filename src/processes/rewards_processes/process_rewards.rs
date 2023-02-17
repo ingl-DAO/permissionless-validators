@@ -42,9 +42,6 @@ pub fn process_rewards(
     vote_account_info
         .assert_owner(&solana_program::vote::program::id())
         .error_log("Error @ vote_account ownership assertion")?;
-    vote_account_info
-        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
-        .error_log("Error @ vote_account seed assertion")?;
 
     config_account_info
         .assert_owner(program_id)
@@ -66,6 +63,7 @@ pub fn process_rewards(
 
     let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
     let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    vote_account_info.assert_key_match(&config_data.vote_account).error_log("Error @ Vote account address verification")?;
 
     let validator_id = config_data.validator_id; // TODO: Stop using config account for validator_id storage, and fetch it directly from the vote account data
     validator_info

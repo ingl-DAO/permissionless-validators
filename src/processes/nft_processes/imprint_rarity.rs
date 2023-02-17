@@ -39,7 +39,7 @@ pub fn process_imprint_rarity(
     let nft_account_info = next_account_info(account_info_iter)?;
     let mint_account_info = next_account_info(account_info_iter)?;
     let associated_token_account_info = next_account_info(account_info_iter)?;
-    let freeze_authority_account_info = next_account_info(account_info_iter)?;
+    let mint_authority_account_info = next_account_info(account_info_iter)?;
     let metadata_account_info = next_account_info(account_info_iter)?;
     let nft_edition_account_info = next_account_info(account_info_iter)?;
     let ingl_config_account_info = next_account_info(account_info_iter)?;
@@ -96,7 +96,7 @@ pub fn process_imprint_rarity(
     }
     log!(log_level, 2, "Done Checking deserialized data !!!");
 
-    let (mint_authority_key, mint_authority_bump) = freeze_authority_account_info
+    let (mint_authority_key, mint_authority_bump) = mint_authority_account_info
         .assert_seed(&program_id, &[INGL_MINT_AUTHORITY_KEY.as_ref()])
         .error_log("@mint_authority_accoun_info")?;
     let mpl_token_metadata_id = mpl_token_metadata::id();
@@ -136,7 +136,7 @@ pub fn process_imprint_rarity(
             *mint_account_info.key,
         ),
         &[
-            freeze_authority_account_info.clone(),
+            mint_authority_account_info.clone(),
             associated_token_account_info.clone(),
             nft_edition_account_info.clone(),
             mint_account_info.clone(),
@@ -154,7 +154,12 @@ pub fn process_imprint_rarity(
 
     let interested_network = NETWORK;
     let history_feeds_pubkeys = get_feeds(&interested_network);
-    log!(log_level, 0, "starting history feeds loop");
+    log!(
+        log_level,
+        0,
+        "starting history feeds loop, rarity_seed_time: {}",
+        nft_data.rarity_seed_time.unwrap()
+    );
     for cnt in 0..history_feeds_pubkeys.len() {
         let history_feed_account_info = next_account_info(account_info_iter)?;
         match interested_network {
@@ -207,8 +212,8 @@ pub fn process_imprint_rarity(
         &mpl_token_metadata::instruction::update_metadata_accounts_v2(
             mpl_token_metadata_id,
             *metadata_account_info.key,
-            *freeze_authority_account_info.key,
-            Some(*freeze_authority_account_info.key),
+            *mint_authority_account_info.key,
+            Some(*mint_authority_account_info.key),
             Some(DataV2 {
                 uri: nft_rarity_uri,
                 uses: gem_metadata.uses,
@@ -223,7 +228,7 @@ pub fn process_imprint_rarity(
         ),
         &[
             metadata_account_info.clone(),
-            freeze_authority_account_info.clone(),
+            mint_authority_account_info.clone(),
         ],
         &[&[INGL_MINT_AUTHORITY_KEY.as_ref(), &[mint_authority_bump]]],
     )

@@ -68,7 +68,7 @@ pub fn execute_governance(
     let clock_data =
         Clock::from_account_info(sysvar_clock_info).error_log("failed to get clock data")?;
 
-    let mut governance_data = GovernanceData::parse(proposal_account_info, program_id)?;
+    let mut governance_data = Box::new(GovernanceData::parse(proposal_account_info, program_id)?);
     let mut config_data = Box::new(ValidatorConfig::parse(ingl_config_account, program_id)?);
     let general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
 
@@ -261,10 +261,18 @@ pub fn handle_vote_account_governance_change(
 ) -> ProgramResult {
     let authorized_withdrawer_info = next_account_info(account_info_iter)?;
     let vote_account_info = next_account_info(account_info_iter)?;
+    let config_account_info = next_account_info(account_info_iter)?;
+
+    let (_expected_config_address, _eca_bump) = config_account_info
+        .assert_seed(program_id, &[INGL_CONFIG_SEED.as_ref()])
+        .error_log("failed to assert_pda_input for config_account_info")?;
+
+    let config_data = ValidatorConfig::parse(config_account_info, program_id)
+        .error_log("failed to parse config_account_info")?;
 
     vote_account_info
-        .assert_seed(program_id, &[VOTE_ACCOUNT_KEY.as_ref()])
-        .error_log("failed to assert_pda_input for vote_account_info")?;
+        .assert_key_match(&config_data.vote_account)
+        .error_log("Error @ Vote account address verification")?;
     vote_account_info
         .assert_owner(&solana_program::vote::program::id())
         .error_log("failed to assert_owner for vote_account_info")?;

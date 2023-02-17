@@ -1,13 +1,13 @@
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
 use crate::{
-    instruction::InstructionEnum,
+    instruction::{InstructionEnum},
     processes::{
         governance_processes::{
             execute_governance::execute_governance, finalize_governance::finalize_governance,
             init_governance::create_governance, vote_governance::vote_governance,
         },
-        init_processes::{init::process_init, reset_uris::reset_uris, upload_uris::upload_uris},
+        init_processes::{init::process_init, reset_uris::reset_uris, upload_uris::upload_uris, fractionalize_existing::fractionalize},
         nft_processes::{
             delegate_nft::delegate_gem, imprint_rarity::process_imprint_rarity,
             mint_nft::process_mint_nft, redeem_nft::redeem_nft, undelegate_nft::undelegate_nft,
@@ -26,48 +26,10 @@ pub fn process_instruction(
     data: &[u8],
 ) -> ProgramResult {
     match InstructionEnum::decode(data) {
-        InstructionEnum::Init {
-            log_level,
-            init_commission,
-            max_primary_stake,
-            nft_holders_share,
-            initial_redemption_fee,
-            is_validator_id_switchable,
-            unit_backing,
-            redemption_fee_duration,
-            proposal_quorum: program_upgrade_threshold,
-            creator_royalties,
-            governance_expiration_time,
-            rarities,
-            rarity_names,
-            twitter_handle,
-            discord_invite,
-            validator_name,
-            collection_uri,
-            website,
-            default_uri,
-        } => process_init(
+        InstructionEnum::Init(init_args) => process_init(
             program_id,
             accounts,
-            log_level,
-            init_commission,
-            max_primary_stake,
-            nft_holders_share,
-            initial_redemption_fee,
-            is_validator_id_switchable,
-            unit_backing,
-            redemption_fee_duration,
-            program_upgrade_threshold,
-            creator_royalties,
-            rarities,
-            rarity_names,
-            governance_expiration_time,
-            twitter_handle,
-            discord_invite,
-            validator_name,
-            collection_uri,
-            website,
-            default_uri,
+            init_args
         )?,
         InstructionEnum::CreateVoteAccount { log_level } => {
             create_vote_account(program_id, accounts, log_level, false)?
@@ -156,6 +118,8 @@ pub fn process_instruction(
             num_mints,
             log_level,
         } => injects::inject_testing_data(program_id, accounts, num_mints, log_level)?,
+
+        InstructionEnum::FractionalizeExisting(init_args) => fractionalize(program_id, accounts, init_args)?,
     }
 
     Ok(())
@@ -250,7 +214,7 @@ pub mod injects {
         general_data.vote_rewards.push(VoteReward {
             epoch_number: chosen_epoch,
             total_stake: general_data.total_delegated,
-            nft_holders_reward: 2*(LAMPORTS_PER_SOL - (0.1 * LAMPORTS_PER_SOL as f64) as u64),
+            nft_holders_reward: 2 * (LAMPORTS_PER_SOL - (0.1 * LAMPORTS_PER_SOL as f64) as u64),
             total_reward: 2 * LAMPORTS_PER_SOL,
         });
         general_data.last_withdraw_epoch = chosen_epoch - 1;
