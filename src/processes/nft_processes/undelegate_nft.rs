@@ -1,8 +1,10 @@
+use std::slice::Iter;
+
 use crate::{
     error::InglError,
     log,
     processes::rewards_processes::nft_withdraw::nft_withdraw,
-    state::{constants::*, FundsLocation, GeneralData, NftData, ValidatorConfig},
+    state::{constants::*, FundsLocation, GeneralData, GovernanceData, NftData, ValidatorConfig},
     utils::{verify_nft_ownership, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
@@ -12,7 +14,8 @@ use solana_program::{
     entrypoint::ProgramResult,
     pubkey::Pubkey,
 };
-pub fn undelegate_nft( // TODO: prevent Undelegation while this NFT's vote is still countable in a non-finalized proposal. i.e. remove all votes on non-finalized proposals before undelegating.
+pub fn undelegate_nft(
+    // TODO: prevent Undelegation while this NFT's vote is still countable in a non-finalized proposal. i.e. remove all votes on non-finalized proposals before undelegating.
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     log_level: u8,
@@ -56,7 +59,7 @@ pub fn undelegate_nft( // TODO: prevent Undelegation while this NFT's vote is st
         program_id,
     )?;
 
-    let mut new_accounts = vec![
+    let mut nft_withdraw_accounts = vec![
         payer_account_info.clone(),
         vote_account_info.clone(),
         general_account_info.clone(),
@@ -64,12 +67,12 @@ pub fn undelegate_nft( // TODO: prevent Undelegation while this NFT's vote is st
         authorized_withdrawer_info.clone(),
     ];
     if clock_is_from_account {
-        new_accounts.push(next_account_info(account_info_iter)?.clone());
+        nft_withdraw_accounts.push(next_account_info(account_info_iter)?.clone());
     }
     if rent_is_from_account {
-        new_accounts.push(next_account_info(account_info_iter)?.clone());
+        nft_withdraw_accounts.push(next_account_info(account_info_iter)?.clone());
     }
-    new_accounts.extend(vec![
+    nft_withdraw_accounts.extend(vec![
         associated_token_account_info.clone(),
         mint_account_info.clone(),
         nft_account_data_info.clone(),
@@ -78,6 +81,20 @@ pub fn undelegate_nft( // TODO: prevent Undelegation while this NFT's vote is st
     let mut general_account_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
     let mut nft_account_data = NftData::parse(&nft_account_data_info, program_id)
         .error_log("Error @gem_account_data_info decoding")?;
+
+    let interested_proposals: Vec<&u32> = general_account_data
+        .unfinalized_proposals
+        .iter()
+        .filter(|x| nft_account_data.all_votes.contains_key(*x))
+        .collect();
+
+    handle_vote_reversal(
+        interested_proposals,
+        account_info_iter,
+        &mut nft_account_data,
+        program_id,
+        log_level,
+    )?;
 
     let interested_epoch = if let Some(tmp) = nft_account_data.last_withdrawal_epoch {
         tmp.max(
@@ -102,7 +119,7 @@ pub fn undelegate_nft( // TODO: prevent Undelegation while this NFT's vote is st
     {
         nft_withdraw(
             program_id,
-            &new_accounts,
+            &nft_withdraw_accounts,
             1,
             log_level,
             clock_is_from_account,
@@ -142,6 +159,51 @@ pub fn undelegate_nft( // TODO: prevent Undelegation while this NFT's vote is st
     nft_account_data
         .serialize(&mut &mut nft_account_data_info.data.borrow_mut()[..])
         .error_log("Error: @gem_account_data serialization")?;
+
+    Ok(())
+}
+
+fn handle_vote_reversal(
+    interested_proposals: Vec<&u32>,
+    account_info_iter: &mut Iter<AccountInfo>,
+    nft_data: &mut NftData,
+    program_id: &Pubkey,
+    log_level: u8,
+) -> ProgramResult {
+    for proposal_numeration in interested_proposals.iter() {
+        log!(log_level, 2, "proposal_numeration: {}", proposal_numeration);
+        let proposal_account_info = next_account_info(account_info_iter)?;
+        proposal_account_info
+            .assert_owner(program_id)
+            .error_log("Error: Proposal account is not owned by the program")?;
+        let (_proposal_id, _proposal_bump) = proposal_account_info
+            .assert_seed(
+                program_id,
+                &[
+                    INGL_PROPOSAL_KEY.as_ref(),
+                    &proposal_numeration.to_be_bytes(),
+                ],
+            )
+            .error_log("failed to assert pda input for proposal_account_info")?;
+
+        let mut governance_data =
+            Box::new(GovernanceData::parse(proposal_account_info, program_id)?);
+
+        match governance_data.votes.remove(&nft_data.numeration) {
+            None => {
+                Err(InglError::InvalidData.utilize("vote to remove not found in governance data"))?
+            }
+            Some(vote) => match nft_data.all_votes.remove(proposal_numeration) {
+                None => {
+                    Err(InglError::InvalidData.utilize("vote to remove not found in nft data"))?
+                }
+                Some(nft_data_vote) => assert_eq!(nft_data_vote, vote),
+            },
+        }
+        governance_data
+            .serialize(&mut &mut proposal_account_info.data.borrow_mut()[..])
+            .error_log("Error: @governance_data serialization")?;
+    }
 
     Ok(())
 }

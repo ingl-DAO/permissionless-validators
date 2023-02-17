@@ -68,9 +68,16 @@ pub fn finalize_governance(
     let clock_data =
         Clock::from_account_info(sysvar_clock_info).error_log("failed to get clock data")?;
 
-    let mut governance_data = GovernanceData::parse(proposal_account_info, program_id)?;
+    let mut governance_data = Box::new(GovernanceData::parse(proposal_account_info, program_id)?);
     let config_data = Box::new(ValidatorConfig::parse(ingl_config_account, program_id)?);
     let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
+    if !general_data
+        .unfinalized_proposals
+        .remove(&proposal_numeration)
+    {
+        Err(InglError::InvalidData
+            .utilize("Could not find the proposal in the unfinalized_proposals"))?
+    }
 
     if governance_data.is_still_ongoing == false {
         Err(InglError::TooLate.utilize("This proposal is currently Closed"))?
@@ -108,7 +115,8 @@ pub fn finalize_governance(
         || (governance_data.expiration_time < clock_data.unix_timestamp as u32)
     {
         governance_data.did_proposal_pass = Some(false);
-    } else if total_yes_votes as f64 >= total_votes_expected as f64 * GOVERNANCE_EXECUTION_THRESHOLD{
+    } else if total_yes_votes as f64 >= total_votes_expected as f64 * GOVERNANCE_EXECUTION_THRESHOLD
+    {
         governance_data.did_proposal_pass = Some(true);
         match governance_data.clone().governance_type {
             GovernanceType::ProgramUpgrade {

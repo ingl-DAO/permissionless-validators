@@ -184,6 +184,7 @@ pub fn create_governance(
     .error_log("failed to transfer spam prevention sol")?;
     log!(log_level, 2, "Transferred Spam prevention Sol !!!");
 
+    general_account_data.unfinalized_proposals.insert(general_account_data.proposal_numeration);
     general_account_data.proposal_numeration += 1;
     log!(log_level, 0, "Serializing data ...");
     governance_data

@@ -1,6 +1,6 @@
 #![allow(unused_parens)]
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     str::FromStr,
 };
 
@@ -460,6 +460,7 @@ pub struct GeneralData {
     pub last_feeless_redemption_date: u32,
     pub last_validated_validator_id_proposal: u32,
     pub rebalancing_data: RebalancingData,
+    pub unfinalized_proposals: BTreeSet<u32>,
     pub vote_rewards: Vec<VoteReward>,
 }
 impl GeneralData {
@@ -484,6 +485,7 @@ impl Default for GeneralData {
             proposal_numeration: 0,
             last_feeless_redemption_date: 0,
             rebalancing_data: RebalancingData::default(),
+            unfinalized_proposals: BTreeSet::new(),
             vote_rewards: Vec::new(),
             last_validated_validator_id_proposal: 0,
         }
