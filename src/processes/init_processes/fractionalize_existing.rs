@@ -1,5 +1,5 @@
 use crate::{
-    instruction::{register_program_instruction, vote_authorize, InitArgs, vote_update_commission},
+    instruction::{register_program_instruction, vote_authorize, vote_update_commission, InitArgs},
     log,
     state::{constants::*, GeneralData, UrisAccount, ValidatorConfig, VoteAuthorize, VoteState},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
@@ -100,9 +100,6 @@ pub fn fractionalize(
         )))
         .error_log("Error @ program data key assertion")?;
 
-    let (vote_account_key, _vote_account_bump) =
-        Pubkey::find_program_address(&[&VOTE_ACCOUNT_KEY.as_ref()], program_id);
-
     system_program_account_info
         .assert_key_match(&system_program::id())
         .error_log("Error @ system_program_account_info Assertion")?;
@@ -130,20 +127,23 @@ pub fn fractionalize(
     swap_authority(program_id, swap_authority_accounts)
         .error_log("an error while swapping withdraw authority")?;
 
-        log!(log_level, 2, "Initiating commission change invocation ...");
-        invoke_signed(
-            &vote_update_commission(
-                vote_account_info.key,
-                pda_authorized_withdrawer_info.key,
-                init_commission,
-            ),
-            &[
-                vote_account_info.clone(),
-                pda_authorized_withdrawer_info.clone(),
-            ],
-            &[&[AUTHORIZED_WITHDRAWER_KEY.as_ref(), &[pda_authorized_withdrawer_bump]]],
-        )?;
-        log!(log_level, 2, "Changed Commission !!!");
+    log!(log_level, 2, "Initiating commission change invocation ...");
+    invoke_signed(
+        &vote_update_commission(
+            vote_account_info.key,
+            pda_authorized_withdrawer_info.key,
+            init_commission,
+        ),
+        &[
+            vote_account_info.clone(),
+            pda_authorized_withdrawer_info.clone(),
+        ],
+        &[&[
+            AUTHORIZED_WITHDRAWER_KEY.as_ref(),
+            &[pda_authorized_withdrawer_bump],
+        ]],
+    )?;
+    log!(log_level, 2, "Changed Commission !!!");
 
     let create_collection_accounts = &[
         payer_account_info.clone(),
@@ -198,7 +198,7 @@ pub fn fractionalize(
         creator_royalties,
         init_commission,
         *validator_account_info.key,
-        vote_account_key,
+        *vote_account_info.key,
         governance_expiration_time,
         default_uri,
         validator_name,
