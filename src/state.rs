@@ -153,9 +153,9 @@ pub struct ValidatorConfig {
 
 impl ValidatorConfig {
     pub fn get_space(&self) -> usize {
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4 + 4 + 4  = 87
-        87 + self.default_uri.len()
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 32 + 4 + 4 + 4 + 4 + 4 + 4  = 119
+        119 + self.default_uri.len()
             + self.validator_name.len()
             + self.twitter_handle.len()
             + self.discord_invite.len()
@@ -465,9 +465,11 @@ pub struct GeneralData {
 }
 impl GeneralData {
     pub fn get_space(&self) -> usize {
-        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len() + 4)
-        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + 4 = 65
-        65 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len())
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (unfinalized_proposals.len() * 4 + 4) + (VoteReward::get_space() * self.vote_rewards.len() + 4)
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + 4 + 4 = 69
+        69 + RebalancingData::get_space()
+            + (VoteReward::get_space() * self.vote_rewards.len())
+            + (self.unfinalized_proposals.len() * 4)
     }
 }
 
