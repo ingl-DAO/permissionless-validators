@@ -59,12 +59,12 @@ pub fn process_init(
     let edition_account_info = next_account_info(account_info_iter)?;
     let spl_token_program_account_info = next_account_info(account_info_iter)?;
     let system_program_account_info = next_account_info(account_info_iter)?;
+    let this_program_data_info = next_account_info(account_info_iter)?;
 
     let registry_program_config_account = next_account_info(account_info_iter)?;
     let this_program_account_info = next_account_info(account_info_iter)?;
     let team_account_info = next_account_info(account_info_iter)?;
     let storage_account_info = next_account_info(account_info_iter)?;
-    let this_program_data_info = next_account_info(account_info_iter)?;
 
     let mut name_storage_accounts = vec![];
 
@@ -95,11 +95,12 @@ pub fn process_init(
             &[this_program_account_info.key.as_ref()],
         )
         .error_log("Error @ program data key assertion")?;
+
     payer_account_info
         .assert_key_match(&Box::new(Pubkey::new(
             &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
         )))
-        .error_log("Error @ program data key assertion")?;
+        .error_log("Error @ authority key assertion")?;
 
     let (vote_account_key, _vote_account_bump) =
         Pubkey::find_program_address(&[&VOTE_ACCOUNT_KEY.as_ref()], program_id);

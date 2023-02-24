@@ -59,6 +59,7 @@ pub fn fractionalize(
     let edition_account_info = next_account_info(account_info_iter)?;
     let spl_token_program_account_info = next_account_info(account_info_iter)?;
     let system_program_account_info = next_account_info(account_info_iter)?;
+    let this_program_data_info = next_account_info(account_info_iter)?;
 
     let current_authorized_withdrawer_info = next_account_info(account_info_iter)?;
     let pda_authorized_withdrawer_info = next_account_info(account_info_iter)?;
@@ -69,7 +70,6 @@ pub fn fractionalize(
     let this_program_account_info = next_account_info(account_info_iter)?;
     let team_account_info = next_account_info(account_info_iter)?;
     let storage_account_info = next_account_info(account_info_iter)?;
-    let this_program_data_info = next_account_info(account_info_iter)?;
 
     let mut name_storage_accounts = vec![];
 
