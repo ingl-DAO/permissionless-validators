@@ -742,8 +742,8 @@ impl VoteState {
         Rent::get().unwrap().minimum_balance(Self::space())
     }
     pub fn deserialize(input: &[u8]) -> Box<Self> {
-        let collected = deserialize::<VoteStateVersions>(input).unwrap();
-        Box::new(collected.convert_to_current())
+        let collected = Box::new(deserialize::<VoteStateVersions>(input).unwrap());
+        collected.convert_to_current()
     }
 }
 
@@ -779,15 +779,14 @@ pub enum VoteStateVersions {
     V0_23_5(Box<VoteState0_23_5>),
     Current(Box<VoteState>),
 }
-
 impl VoteStateVersions {
-    pub fn convert_to_current(self) -> VoteState {
+    pub fn convert_to_current(self) -> Box<VoteState> {
         match self {
             VoteStateVersions::V0_23_5(state) => {
                 let authorized_voters =
                     AuthorizedVoters::new(state.authorized_voter_epoch, state.authorized_voter);
 
-                VoteState {
+                Box::new(VoteState {
                     node_pubkey: state.node_pubkey,
 
                     /// the signer for withdrawals
@@ -803,9 +802,9 @@ impl VoteStateVersions {
 
                     /// the signer for vote transactions
                     authorized_voters,
-                }
+                })
             }
-            VoteStateVersions::Current(state) => *state,
+            VoteStateVersions::Current(state) => state,
         }
     }
 }
