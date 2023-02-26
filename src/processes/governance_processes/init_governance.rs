@@ -15,7 +15,6 @@ use crate::{
 
 use borsh::BorshSerialize;
 
-use solana_program::native_token::LAMPORTS_PER_SOL;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     bpf_loader_upgradeable,
@@ -24,6 +23,7 @@ use solana_program::{
     pubkey::Pubkey,
     system_instruction,
 };
+use solana_program::{log, native_token::LAMPORTS_PER_SOL};
 
 pub fn create_governance(
     program_id: &Pubkey,
@@ -68,8 +68,10 @@ pub fn create_governance(
         .error_log("failed at config account owner assertion")?;
 
     let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
-    
-    vote_account_info.assert_key_match(&config_data.vote_account).error_log("Error @ Vote account address verification")?;
+
+    vote_account_info
+        .assert_key_match(&config_data.vote_account)
+        .error_log("Error @ Vote account address verification")?;
 
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
 
@@ -184,15 +186,38 @@ pub fn create_governance(
     .error_log("failed to transfer spam prevention sol")?;
     log!(log_level, 2, "Transferred Spam prevention Sol !!!");
 
-    general_account_data.unfinalized_proposals.insert(general_account_data.proposal_numeration);
+    general_account_data
+        .unfinalized_proposals
+        .insert(general_account_data.proposal_numeration);
     general_account_data.proposal_numeration += 1;
+
+    log!(log_level, 3, "Incrementing general_account_info space");
+    let new_space = general_account_data.get_space();
+    let new_lamports = rent_data.minimum_balance(new_space);
+    if general_account_info.lamports() < new_lamports {
+        invoke(
+            &system_instruction::transfer(
+                payer_account_info.key,
+                general_account_info.key,
+                new_lamports
+                    .checked_sub(general_account_info.lamports())
+                    .unwrap(),
+            ),
+            &[payer_account_info.clone(), general_account_info.clone()],
+        )
+        .error_log("Error @ Failed to transfer lamports to general_account_info")?;
+    }
+    general_account_info
+        .realloc(new_space, false)
+        .error_log("Error @ Failed to realloc general_account_info")?;
+
     log!(log_level, 0, "Serializing data ...");
     governance_data
         .serialize(&mut &mut proposal_account_info.data.borrow_mut()[..])
         .error_log("failed to serialize into proposal_account_info")?;
     general_account_data
         .serialize(&mut &mut general_account_info.data.borrow_mut()[..])
-        .error_log("failed to serialize into global_gem_account_info")?;
+        .error_log("failed to serialize into general_account_info")?;
     log!(log_level, 4, "Done with create_governance_proposal !!!");
     Ok(())
 }
