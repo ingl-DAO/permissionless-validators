@@ -15,6 +15,7 @@ use crate::{
 
 use borsh::BorshSerialize;
 
+use solana_program::native_token::LAMPORTS_PER_SOL;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     bpf_loader_upgradeable,
@@ -23,7 +24,6 @@ use solana_program::{
     pubkey::Pubkey,
     system_instruction,
 };
-use solana_program::{log, native_token::LAMPORTS_PER_SOL};
 
 pub fn create_governance(
     program_id: &Pubkey,
