@@ -155,7 +155,7 @@ cargo-x bda
 #### Initialize the program instance (ensure the signer is the upgrade authority of the program)
 ```
 
-ingl init --keypair <path to upgrade_authority> --validator <path to authorized voter>
+ingl init --keypair <path to upgrade_authority>
 
 ```
 
