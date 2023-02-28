@@ -97,9 +97,12 @@ pub fn process_init(
         .error_log("Error @ program data key assertion")?;
 
     payer_account_info
-        .assert_key_match(&Box::new(Pubkey::new(
-            &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
-        )))
+        .assert_key_match(&Box::new(
+            Pubkey::try_from(
+                &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
+            )
+            .unwrap(),
+        ))
         .error_log("Error @ authority key assertion")?;
 
     let (vote_account_key, _vote_account_bump) =

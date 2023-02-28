@@ -1,6 +1,5 @@
 use crate::{
     error::InglError,
-    instruction::split,
     log,
     state::{constants::*, GeneralData, ValidatorConfig},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
@@ -8,7 +7,7 @@ use crate::{
 
 use borsh::BorshSerialize;
 
-use solana_program::native_token::LAMPORTS_PER_SOL;
+use solana_program::{native_token::LAMPORTS_PER_SOL, stake::instruction::split};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -251,7 +250,7 @@ pub fn init_rebalance(
                     pd_pool_account_info.key,
                     split_lamports,
                     t_withdraw_info.key,
-                ),
+                )[0],
                 &[
                     stake_account_info.clone(),
                     t_withdraw_info.clone(),

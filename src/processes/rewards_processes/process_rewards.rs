@@ -1,6 +1,5 @@
 use crate::{
     error::InglError,
-    instruction::vote_withdraw,
     log,
     state::{constants::*, GeneralData, ValidatorConfig, VoteReward},
     utils::{get_clock_data, get_rent_data, AccountInfoHelpers, OptionExt, ResultExt},
@@ -13,7 +12,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     program::{invoke, invoke_signed},
     pubkey::Pubkey,
-    system_instruction,
+    system_instruction, vote::instruction::withdraw,
 };
 
 pub fn process_rewards(
@@ -63,7 +62,9 @@ pub fn process_rewards(
 
     let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
     let mut general_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
-    vote_account_info.assert_key_match(&config_data.vote_account).error_log("Error @ Vote account address verification")?;
+    vote_account_info
+        .assert_key_match(&config_data.vote_account)
+        .error_log("Error @ Vote account address verification")?;
 
     let validator_id = config_data.validator_id; // TODO: Stop using config account for validator_id storage, and fetch it directly from the vote account data
     validator_info
@@ -87,7 +88,7 @@ pub fn process_rewards(
         "Withdrawing the funds from the vote account ..."
     );
     invoke_signed(
-        &vote_withdraw(
+        &withdraw(
             vote_account_info.key,
             authorized_withdrawer_info.key,
             reward_lamports,

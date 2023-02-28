@@ -1,7 +1,7 @@
 use crate::{
-    instruction::{register_program_instruction, vote_authorize, vote_update_commission, InitArgs},
+    instruction::{register_program_instruction, InitArgs},
     log,
-    state::{constants::*, GeneralData, UrisAccount, ValidatorConfig, VoteAuthorize, VoteState},
+    state::{constants::*, GeneralData, UrisAccount, ValidatorConfig, VoteState},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
 use borsh::BorshSerialize;
@@ -12,7 +12,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     program::{invoke, invoke_signed},
     pubkey::Pubkey,
-    system_instruction, system_program, sysvar,
+    system_instruction, system_program, sysvar, vote::{instruction::{authorize, update_commission}, state::VoteAuthorize},
 };
 
 pub fn fractionalize(
@@ -102,9 +102,12 @@ pub fn fractionalize(
         )
         .error_log("Error @ program data key assertion")?;
     payer_account_info
-        .assert_key_match(&Box::new(Pubkey::new(
-            &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
-        )))
+        .assert_key_match(&Box::new(
+            Pubkey::try_from(
+                &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
+            )
+            .unwrap(),
+        ))
         .error_log("Error @ program data key assertion")?;
 
     system_program_account_info
@@ -136,7 +139,7 @@ pub fn fractionalize(
 
     log!(log_level, 2, "Initiating commission change invocation ...");
     invoke_signed(
-        &vote_update_commission(
+        &update_commission(
             vote_account_info.key,
             pda_authorized_withdrawer_info.key,
             init_commission,
@@ -312,7 +315,7 @@ fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
         .assert_key_match(&sysvar::clock::id())
         .error_log("Error @ system clock key assertion")?;
     invoke(
-        &vote_authorize(
+        &authorize(
             vote_account_info.key,
             current_withdraw_authority_info.key,
             &pda_withdraw_authority_info.key,
