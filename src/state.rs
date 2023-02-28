@@ -153,9 +153,9 @@ pub struct ValidatorConfig {
 
 impl ValidatorConfig {
     pub fn get_space(&self) -> usize {
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
-        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 4 + 4 + 4 + 4 + 4 + 4  = 87
-        87 + self.default_uri.len()
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 32 + 4 + (self.collection_uri.len() + 4) + (self.validator_name.len() + 4) + (self.twitter_handle.len() + 4) + (self.discord_invite.len() + 4) + (self.website.len() + 4)
+        // 4 + 1 + 8 + 1 + 1 + 8 + 4 + 1 + 2 + 1 + 32 + 32 + 4 + 4 + 4 + 4 + 4 + 4  = 119
+        119 + self.default_uri.len()
             + self.validator_name.len()
             + self.twitter_handle.len()
             + self.discord_invite.len()
@@ -465,9 +465,11 @@ pub struct GeneralData {
 }
 impl GeneralData {
     pub fn get_space(&self) -> usize {
-        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len() + 4)
-        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + 4 = 65
-        65 + RebalancingData::get_space() + (VoteReward::get_space() * self.vote_rewards.len())
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + RebalancingData::get_space() + (unfinalized_proposals.len() * 4 + 4) + (VoteReward::get_space() * self.vote_rewards.len() + 4)
+        // 4 + 4 + 8 + 8 + 8 + 8 + 8 + 1 + 4 + 4 + 4 + 4 + 4 = 69
+        69 + RebalancingData::get_space()
+            + (VoteReward::get_space() * self.vote_rewards.len())
+            + (self.unfinalized_proposals.len() * 4)
     }
 }
 
@@ -740,8 +742,8 @@ impl VoteState {
         Rent::get().unwrap().minimum_balance(Self::space())
     }
     pub fn deserialize(input: &[u8]) -> Box<Self> {
-        let collected = deserialize::<VoteStateVersions>(input).unwrap();
-        Box::new(collected.convert_to_current())
+        let collected = Box::new(deserialize::<VoteStateVersions>(input).unwrap());
+        collected.convert_to_current()
     }
 }
 
@@ -777,15 +779,14 @@ pub enum VoteStateVersions {
     V0_23_5(Box<VoteState0_23_5>),
     Current(Box<VoteState>),
 }
-
 impl VoteStateVersions {
-    pub fn convert_to_current(self) -> VoteState {
+    pub fn convert_to_current(self) -> Box<VoteState> {
         match self {
             VoteStateVersions::V0_23_5(state) => {
                 let authorized_voters =
                     AuthorizedVoters::new(state.authorized_voter_epoch, state.authorized_voter);
 
-                VoteState {
+                Box::new(VoteState {
                     node_pubkey: state.node_pubkey,
 
                     /// the signer for withdrawals
@@ -801,9 +802,9 @@ impl VoteStateVersions {
 
                     /// the signer for vote transactions
                     authorized_voters,
-                }
+                })
             }
-            VoteStateVersions::Current(state) => *state,
+            VoteStateVersions::Current(state) => state,
         }
     }
 }

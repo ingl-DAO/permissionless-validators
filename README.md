@@ -142,13 +142,20 @@ solana airdrop 2
 ```
 #### Repeat the command above until a balance of 12 sol or more
 
-#### Compile and deploy the program (on devnet), then set the program upgrade authority to the governance pda
-cargo-x bdau
+<!-- #### Compile and deploy the program (on devnet), then set the program upgrade authority to the governance pda
+cargo-x bdau -->
 
-#### Initialize the program instance
+#### Compile and deploy the program (on devnet),
 ```
 
-ingl init
+cargo-x bda
+
+```
+
+#### Initialize the program instance (ensure the signer is the upgrade authority of the program)
+```
+
+ingl init --keypair <path to upgrade_authority>
 
 ```
 

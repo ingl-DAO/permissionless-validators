@@ -52,8 +52,8 @@ pub fn delegate_gem(
         .assert_owner(program_id)
         .error_log("Error: @config_account_info owner assertion")?;
 
-    let mut nft_account_data =
-        NftData::parse(&nft_account_data_info, program_id).error_log("Error @ Gem Account Data Validation")?;
+    let mut nft_account_data = NftData::parse(&nft_account_data_info, program_id)
+        .error_log("Error @ Gem Account Data Validation")?;
 
     let mut general_account_data = Box::new(GeneralData::parse(general_account_info, program_id)?);
     let config_data = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
@@ -61,7 +61,7 @@ pub fn delegate_gem(
     general_account_data.total_delegated = general_account_data
         .total_delegated
         .checked_add(config_data.unit_backing)
-        .error_log("Error @ Global Gem Account Data Delegated Total recalc")?;
+        .error_log("Error @ general Account Data Delegated Total recalc")?;
 
     match nft_account_data.funds_location {
         FundsLocation::Undelegated => {
