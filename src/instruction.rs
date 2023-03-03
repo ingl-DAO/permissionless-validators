@@ -21,7 +21,6 @@ pub struct InitArgs {
     pub proposal_quorum: u8,
     pub creator_royalties: u16,
     pub governance_expiration_time: u32,
-    pub name_storage_numeration: u32,
     pub rarities: Vec<u16>,
     pub rarity_names: Vec<String>,
     pub twitter_handle: String,
@@ -136,36 +135,26 @@ pub enum RegistryInstructionEnum {
 pub fn register_program_instruction(
     payer: Pubkey,
     program_id: Pubkey,
-    storage_key: Pubkey,
     name: String,
-    name_storage_numeration: u32,
 ) -> Instruction {
     let instr = RegistryInstructionEnum::AddProgram { name };
     let data = instr.try_to_vec().unwrap();
     let config_key =
         Pubkey::find_program_address(&[b"config"], &constants::program_registry::id()).0;
-    let mut name_storages = vec![];
-    for ind in 0..name_storage_numeration {
-        let (current_name_storage_key, _current_name_storage_bump) = Pubkey::find_program_address(
-            &[b"name_storage", &ind.to_be_bytes()],
-            &constants::program_registry::id(),
-        );
-        name_storages.push(AccountMeta::new_readonly(current_name_storage_key, false));
-    }
-    let (current_name_storage_key, _current_name_storage_bump) = Pubkey::find_program_address(
-        &[b"name_storage", &name_storage_numeration.to_be_bytes()],
-        &constants::program_registry::id(),
-    );
-    name_storages.push(AccountMeta::new(current_name_storage_key, false));
-    let mut accounts = vec![
+    let (name_storage_key, _name_storage_bump) =
+        Pubkey::find_program_address(&[b"name_storage"], &constants::program_registry::id());
+    let (storage_key, _storage_bump) =
+        Pubkey::find_program_address(&[b"storage"], &constants::program_registry::id());
+
+    let accounts = vec![
         AccountMeta::new(payer, true),
         AccountMeta::new(config_key, false),
         AccountMeta::new_readonly(program_id, false),
         AccountMeta::new(constants::team::id(), false),
         AccountMeta::new(storage_key, false),
+        AccountMeta::new(name_storage_key, false),
+        AccountMeta::new_readonly(system_program::ID, false),
     ];
-    accounts.extend(name_storages);
-    accounts.push(AccountMeta::new_readonly(system_program::ID, false));
 
     Instruction {
         program_id: constants::program_registry::id(),

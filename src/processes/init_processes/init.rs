@@ -30,7 +30,6 @@ pub fn process_init(
         unit_backing,
         redemption_fee_duration,
         creator_royalties,
-        name_storage_numeration,
         rarities,
         rarity_names,
         governance_expiration_time,
@@ -65,12 +64,7 @@ pub fn process_init(
     let this_program_account_info = next_account_info(account_info_iter)?;
     let team_account_info = next_account_info(account_info_iter)?;
     let storage_account_info = next_account_info(account_info_iter)?;
-
-    let mut name_storage_accounts = vec![];
-
-    for _ in 0..name_storage_numeration + 1 {
-        name_storage_accounts.push(next_account_info(account_info_iter)?.clone());
-    }
+    let name_storage_account_info = next_account_info(account_info_iter)?;
 
     let rent_data = get_rent_data_from_account(rent_account_info)?;
 
@@ -235,25 +229,19 @@ pub fn process_init(
         .serialize(&mut &mut uris_account_info.data.borrow_mut()[..])
         .error_log("Error @ Uris Account Data Serialization")?;
 
-    let mut registry_program_accounts = vec![
+    let registry_program_accounts = vec![
         payer_account_info.clone(),
         registry_program_config_account.clone(),
         this_program_account_info.clone(),
         team_account_info.clone(),
         storage_account_info.clone(),
+        name_storage_account_info.clone(),
+        system_program_account_info.clone(),
     ];
-    registry_program_accounts.extend(name_storage_accounts);
-    registry_program_accounts.push(system_program_account_info.clone());
 
     log!(log_level, 2, "Initing Program Registration ... ");
     invoke(
-        &register_program_instruction(
-            *payer_account_info.key,
-            *program_id,
-            *storage_account_info.key,
-            validator_name,
-            name_storage_numeration,
-        ),
+        &register_program_instruction(*payer_account_info.key, *program_id, validator_name),
         &registry_program_accounts,
     )?;
 
