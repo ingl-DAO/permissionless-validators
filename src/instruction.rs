@@ -126,8 +126,9 @@ impl InstructionEnum {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum RegistryInstructionEnum {
     InitConfig,
-    AddProgram { name: String },
+    AddValidatorProgram { name: String },
     RemovePrograms { program_count: u8 },
+    AddMarketplaceProgram,
     Reset,
     Blank,
 }
@@ -137,7 +138,7 @@ pub fn register_program_instruction(
     program_id: Pubkey,
     name: String,
 ) -> Instruction {
-    let instr = RegistryInstructionEnum::AddProgram { name };
+    let instr = RegistryInstructionEnum::AddValidatorProgram { name };
     let data = instr.try_to_vec().unwrap();
     // let config_key =
     //     Pubkey::find_program_address(&[b"config"], &constants::program_registry::id()).0;
