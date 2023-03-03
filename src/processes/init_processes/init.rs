@@ -60,11 +60,11 @@ pub fn process_init(
     let system_program_account_info = next_account_info(account_info_iter)?;
     let this_program_data_info = next_account_info(account_info_iter)?;
 
-    let registry_program_config_account = next_account_info(account_info_iter)?;
     let this_program_account_info = next_account_info(account_info_iter)?;
     let team_account_info = next_account_info(account_info_iter)?;
     let storage_account_info = next_account_info(account_info_iter)?;
     let name_storage_account_info = next_account_info(account_info_iter)?;
+    // let registry_program_config_account = next_account_info(account_info_iter)?;
 
     let rent_data = get_rent_data_from_account(rent_account_info)?;
 
@@ -108,9 +108,9 @@ pub fn process_init(
     spl_token_program_account_info
         .assert_key_match(&spl_token::id())
         .error_log("Error @ spl_token_program_account_info Assertion")?;
-    registry_program_config_account
-        .assert_owner(&program_registry::id())
-        .error_log("Error @ registry_program_config_account Assertion")?;
+    // registry_program_config_account
+    //     .assert_owner(&program_registry::id())
+    //     .error_log("Error @ registry_program_config_account Assertion")?;
     this_program_account_info
         .assert_key_match(program_id)
         .error_log("Error @ this_program_account_info Assertion")?;
@@ -231,11 +231,11 @@ pub fn process_init(
 
     let registry_program_accounts = vec![
         payer_account_info.clone(),
-        registry_program_config_account.clone(),
         this_program_account_info.clone(),
         team_account_info.clone(),
         storage_account_info.clone(),
         name_storage_account_info.clone(),
+        // registry_program_config_account.clone(),
         system_program_account_info.clone(),
     ];
 

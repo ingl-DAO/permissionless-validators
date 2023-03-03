@@ -139,8 +139,8 @@ pub fn register_program_instruction(
 ) -> Instruction {
     let instr = RegistryInstructionEnum::AddProgram { name };
     let data = instr.try_to_vec().unwrap();
-    let config_key =
-        Pubkey::find_program_address(&[b"config"], &constants::program_registry::id()).0;
+    // let config_key =
+    //     Pubkey::find_program_address(&[b"config"], &constants::program_registry::id()).0;
     let (name_storage_key, _name_storage_bump) =
         Pubkey::find_program_address(&[b"name_storage"], &constants::program_registry::id());
     let (storage_key, _storage_bump) =
@@ -148,11 +148,11 @@ pub fn register_program_instruction(
 
     let accounts = vec![
         AccountMeta::new(payer, true),
-        AccountMeta::new(config_key, false),
         AccountMeta::new_readonly(program_id, false),
         AccountMeta::new(constants::team::id(), false),
         AccountMeta::new(storage_key, false),
         AccountMeta::new(name_storage_key, false),
+        // AccountMeta::new(config_key, false),
         AccountMeta::new_readonly(system_program::ID, false),
     ];
 
