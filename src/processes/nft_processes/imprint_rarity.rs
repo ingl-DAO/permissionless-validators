@@ -16,7 +16,7 @@ use solana_program::{
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
-    sysvar::recent_blockhashes,
+    sysvar,
 };
 
 pub fn process_imprint_rarity(
@@ -69,7 +69,7 @@ pub fn process_imprint_rarity(
         .assert_owner(&solana_program::sysvar::id())
         .error_log("Error: @recent_blockhashes_account_info ownership")?;
     recent_blockhashes_account_info
-        .assert_key_match(&recent_blockhashes::ID)
+        .assert_key_match(&sysvar::slot_hashes::ID)
         .error_log("Error: @recent_blockhashes_account_info key")?;
     ingl_config_account_info
         .assert_owner(&program_id)
