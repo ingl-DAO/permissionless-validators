@@ -148,7 +148,7 @@ pub fn process_imprint_rarity(
     let gem_metadata = Metadata::deserialize(&mut &metadata_account_info.data.borrow()[..])
         .error_log("Error: @ deserialize metadata")?;
 
-    let recent_blockhashes_data = recent_blockhashes_account_info.data.borrow();
+    let recent_blockhashes_data = recent_blockhashes_account_info.data.borrow(); //TODO: ensure to only use the blockhash for the rarity seed slot, and fail use the common rarity if the slot is too old.
     let most_recent = array_ref![recent_blockhashes_data, 12, 8];
 
     let seed = ((u64::from_le_bytes(*most_recent).saturating_sub(clock_data.unix_timestamp as u64))

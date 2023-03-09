@@ -59,6 +59,7 @@ pub fn process_init(
     let spl_token_program_account_info = next_account_info(account_info_iter)?;
     let system_program_account_info = next_account_info(account_info_iter)?;
     let this_program_data_info = next_account_info(account_info_iter)?;
+    let current_upgrade_authority_info = next_account_info(account_info_iter)?;
 
     let this_program_account_info = next_account_info(account_info_iter)?;
     let team_account_info = next_account_info(account_info_iter)?;
@@ -90,7 +91,10 @@ pub fn process_init(
         )
         .error_log("Error @ program data key assertion")?;
 
-    payer_account_info
+    current_upgrade_authority_info
+        .assert_signer()
+        .error_log("upgrade_authority must sign initialization")?;
+    current_upgrade_authority_info
         .assert_key_match(&Box::new(
             Pubkey::try_from(
                 &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
