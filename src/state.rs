@@ -1,15 +1,11 @@
 #![allow(unused_parens)]
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    str::FromStr,
-};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use crate::{
     colored_log,
     error::InglError,
     utils::{AccountInfoHelpers, ResultExt},
 };
-use bincode::deserialize;
 use borsh::{BorshDeserialize, BorshSerialize};
 use ingl_macros::Validate;
 use serde_derive::{Deserialize, Serialize};
@@ -32,17 +28,12 @@ use crate::state::LogColors::*;
 use self::constants::CUMMULATED_RARITY;
 pub const LOG_LEVEL: u8 = 5;
 
-pub enum Network {
-    Devnet,
-    Mainnet,
-    LocalTest,
-}
-
 pub mod constants {
-    use super::Network;
 
     pub const CUMMULATED_RARITY: u16 = 10000;
+    pub const RARITY_IMPRINT_WAIT_SLOTS: u64 = 20;
     pub const INGL_VRF_MAX_RESULT: u64 = 10000;
+
     pub const INGL_CONFIG_VAL_PHRASE: u32 = 739_215_648;
     pub const URIS_ACCOUNT_VAL_PHRASE: u32 = 382_916_043;
     pub const GENERAL_ACCOUNT_VAL_PHRASE: u32 = 836_438_471;
@@ -70,46 +61,6 @@ pub mod constants {
     pub const FEELESS_REDEMPTION_PERIOD: u32 = 86400 * 30; // 1 month
     pub const GOVERNANCE_EXECUTION_THRESHOLD: f64 = 4.0 / 5.0; // 80%
     pub const GOVERNANCE_SAFETY_LEEWAY: u32 = 86400 * 30; // 1 month
-
-    pub const DEV_NUM_FEEDS: usize = 20;
-    pub const DEV_PRICE_TIME_INTERVAL: u8 = 5;
-    pub const DEV_FEEDS: [&str; DEV_NUM_FEEDS] = [
-        "9ATrvi6epR5hVYtwNs7BB7VCiYnd4WM7e8MfafWpfiXC", //BTC
-        "7LLvRhMs73FqcLkA8jvEE1AM2mYZXTmqfUv8GAEurymx", //SOL
-        "6fhxFvPocWapZ5Wa2miDnrX2jYRFKvFqYnX11GGkBo2f", //ETH
-        "DR6PqK15tD21MEGSLmDpXwLA7Fw47kwtdZeUMdT7vd7L", //BNB
-        "HPRYVJQ3DcTqszvorS4gCwbJvvNeWMgaCCoF3Lj3sAgC", //ADA
-        "2qcLzR7FatMnfCbiB9BdhGsd6SxDgEqWq7xkD62n3xoT", //BCH
-        "Bux82YCH8DgqFAQTKBxuQHDp3cud5AhD1Kibhjadz22D", //SBR
-        "9gGvxPErkRubNj1vKE19smLa4Kp89kkzMVyA6TMvmKEZ", //ZEC
-        "3WNhN4RJwRui4R3k1S9agGzyMZkCwKQkWjoEHbDeAF8J", //LUNA
-        "CNzjdKHfXqyAeGd2APpzvwLcuPACrFdHb3k6SLsod6Ao", //TRX
-        "6cBTHY4HQ4PABmhUqVLT4n4bNpmZAi2br5VnqTQoVRUo", //SUSHI
-        "GRGMtrTszsoNzjqwTxsvkHVAPq5Snju2UzaAws5KBPed", //DOGE
-        "C9CeLP5B4Lqq7cFppRBUZjt6hrvd99YR3Sk4EPPuAoAC", //LTC
-        "FReW6u9YPpGQNaeEHNkVqA4KGA2WzbcT87NThwFb7fwm", //XLM
-        "GEp5pZFjFPqn1teMmx9sLPyADf9N9aQsRn9TE17PwmmL", //LINK
-        "Fd3UQMqmKCA6SNf6To97PdC2H3EfzYWR5bxr5CBYuFiy", //DOT
-        "EQHf8ueSzJUPELF6yZkyGfwjbLsDmMwFrAYehmC15b6c", //XMR
-        "C5x5W7BHVY61ULtWQ3qkP7kpE6zHViWd4AHpKDuAywPw", //SRM
-        "HnbpTLbdv78hkVCDBZ52o5E6bkqtsZp4tUXBd2E8Sw9x", //PORT
-        "EbpMMgMkC4Jt2oipUBc2GPL4XQo5uxKT8NpF8NEZWvqL", //PAI
-    ];
-    pub const MAIN_NUM_FEEDS: usize = 2;
-    pub const MAIN_PRICE_TIME_INTERVAL: u8 = 20;
-    pub const MAIN_FEEDS: [&str; MAIN_NUM_FEEDS] = [
-        "8SXvChNYFhRq4EZuZvnhjrB3jJRQCv4k3P4W6hesH3Ee", //BTC
-        "E3cqnoFvTeKKNsGmC8YitpMjo2E39hwfoyt2Aiem7dCb", //SOL
-    ];
-    pub const LOCALTEST_NUM_FEEDS: usize = 2;
-    pub const LOCALTEST_PRICE_TIME_INTERVAL: u8 = 20;
-    pub const LOCALTEST_FEEDS: [&str; MAIN_NUM_FEEDS] = [
-        "9ATrvi6epR5hVYtwNs7BB7VCiYnd4WM7e8MfafWpfiXC", //BTC
-        "7LLvRhMs73FqcLkA8jvEE1AM2mYZXTmqfUv8GAEurymx", //SOL
-    ];
-
-    pub const NETWORK: Network = Network::Devnet;
-
     pub mod initializer {
         solana_program::declare_id!("62uPowNXr22WPw7XghajJkWMBJ2fnv1oGthxqHYYPHie");
     }
@@ -120,7 +71,7 @@ pub mod constants {
 
     pub mod team {
         pub const TEAM_SHARE: u64 = 10;
-        solana_program::declare_id!("Team111111111111111111111111111111111111111");
+        solana_program::declare_id!("Et2tm6NsfBZJbEYXtWTv9k51V4tWtQvufexSgXoDRGVA");
     }
 }
 
@@ -506,7 +457,7 @@ pub enum FundsLocation {
 pub struct NftData {
     pub validation_phrase: u32,
     pub rarity: Option<u8>,
-    pub rarity_seed_time: Option<u32>,
+    pub rarity_seed_slot: Option<u64>,
     pub funds_location: FundsLocation,
     pub numeration: u32,
     pub date_created: u32,
@@ -517,32 +468,10 @@ pub struct NftData {
 }
 impl NftData {
     pub fn get_space(&self) -> usize {
-        // 4 + (1 + 1) + (1 + 4) + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
-        // 4 + 1 + 1 + 1 + 4 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
-        46 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
+        // 4 + (1 + 1) + (1 + 8) + 1 + 4 + 4 + (1 + 8) + (1 + 8) + (8 * self.all_withdraws.len() + 4) + (5 * self.all_votes.len() + 4)
+        // 4 + 1 + 1 + 1 + 8 + 1 + 4 + 4 + 9 + 9 + 4 + 4 = 40
+        60 + (8 * self.all_withdraws.len()) + (5 * self.all_votes.len())
     }
-}
-
-pub fn get_feeds(network: &Network) -> Vec<Pubkey> {
-    let mut feeds = Vec::new();
-    match network {
-        Network::Devnet => {
-            for feed in constants::DEV_FEEDS {
-                feeds.push(Pubkey::from_str(feed).unwrap());
-            }
-        }
-        Network::Mainnet => {
-            for feed in constants::MAIN_FEEDS {
-                feeds.push(Pubkey::from_str(feed).unwrap());
-            }
-        }
-        Network::LocalTest => {
-            for feed in constants::LOCALTEST_FEEDS {
-                feeds.push(Pubkey::from_str(feed).unwrap());
-            }
-        }
-    }
-    return feeds;
 }
 
 pub enum LogColors {
@@ -713,8 +642,9 @@ pub enum VoteAuthorize {
     Withdrawer,
 }
 
-#[derive(Deserialize)]
+#[derive(BorshDeserialize, Clone)]
 pub struct VoteState {
+    pub padding_for_borsh: [u8; 3],
     /// the node that votes in this account
     pub node_pubkey: Pubkey,
 
@@ -742,18 +672,12 @@ impl VoteState {
         Rent::get().unwrap().minimum_balance(Self::space())
     }
     pub fn deserialize(input: &[u8]) -> Box<Self> {
-        let collected = deserialize::<Box<VoteStateVersions>>(input).unwrap();
+        let collected: Box<VoteStateVersions> = try_from_slice_unchecked(input).unwrap();
         collected.convert_to_current()
     }
 }
 
-pub type UnixTimestamp = i64;
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
-pub struct BlockTimestamp {
-    pub slot: Slot,
-    pub timestamp: UnixTimestamp,
-}
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, BorshDeserialize, PartialEq, Eq, Clone)]
 pub struct AuthorizedVoters {
     pub authorized_voters: BTreeMap<Epoch, Pubkey>,
 }
@@ -768,17 +692,18 @@ impl AuthorizedVoters {
     }
 }
 
-#[derive(Serialize, Default, Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Default, BorshDeserialize, Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Lockout {
     pub slot: Slot,
     pub confirmation_count: u32,
 }
 
-#[derive(Deserialize)]
+#[derive(BorshDeserialize, Clone)]
 pub enum VoteStateVersions {
     V0_23_5(Box<VoteState0_23_5>),
     Current(Box<VoteState>),
 }
+
 impl VoteStateVersions {
     pub fn convert_to_current(self) -> Box<VoteState> {
         match self {
@@ -787,6 +712,8 @@ impl VoteStateVersions {
                     AuthorizedVoters::new(state.authorized_voter_epoch, state.authorized_voter);
 
                 Box::new(VoteState {
+                    padding_for_borsh: [0, 0, 0],
+
                     node_pubkey: state.node_pubkey,
 
                     /// the signer for withdrawals
@@ -809,8 +736,9 @@ impl VoteStateVersions {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, BorshDeserialize, PartialEq, Eq, Clone)]
 pub struct VoteState0_23_5 {
+    pub padding_for_borsh: [u8; 3],
     /// the node that votes in this account
     pub node_pubkey: Pubkey,
 
@@ -832,7 +760,7 @@ pub struct VoteState0_23_5 {
 }
 
 const MAX_ITEMS: usize = 32;
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, BorshDeserialize, PartialEq, Eq, Clone)]
 pub struct CircBuf<I> {
     pub buf: [I; MAX_ITEMS],
     /// next pointer
@@ -845,41 +773,4 @@ impl<I: Default + Copy> Default for CircBuf<I> {
             idx: MAX_ITEMS - 1,
         }
     }
-}
-
-impl<I> CircBuf<I> {
-    pub fn append(&mut self, item: I) {
-        // remember prior delegate and when we switched, to support later slashing
-        self.idx += 1;
-        self.idx %= MAX_ITEMS;
-
-        self.buf[self.idx] = item;
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
-pub enum UpgradeableLoaderState {
-    /// Account is not initialized.
-    Uninitialized,
-    /// A Buffer account.
-    Buffer {
-        /// Authority address
-        authority_address: Option<Pubkey>,
-        // The raw program data follows this serialized structure in the
-        // account's data.
-    },
-    /// An Program account.
-    Program {
-        /// Address of the ProgramData account.
-        programdata_address: Pubkey,
-    },
-    // A ProgramData account.
-    ProgramData {
-        /// Slot that the program was last modified.
-        slot: u64,
-        /// Address of the Program's upgrade authority.
-        upgrade_authority_address: Option<Pubkey>, // TODO: Check that the upgrade_authority_address is a signer during intialization.
-                                                   // The raw program data follows this serialized structure in the
-                                                   // account's data.
-    },
 }

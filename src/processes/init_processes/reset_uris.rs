@@ -3,8 +3,6 @@ use crate::{
     state::{constants::*, UrisAccount, ValidatorConfig},
     utils::{AccountInfoHelpers, ResultExt},
 };
-
-use anchor_lang::prelude::{Rent, SolanaSysvar};
 use borsh::BorshSerialize;
 
 use solana_program::{
@@ -12,6 +10,8 @@ use solana_program::{
     entrypoint::ProgramResult,
     // program::invoke_signed,
     pubkey::Pubkey,
+    rent::Rent,
+    sysvar::Sysvar,
     // system_instruction,
 };
 

@@ -1,9 +1,9 @@
-use anchor_lang::system_program;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     borsh::try_from_slice_unchecked,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
+    system_program,
 };
 
 use crate::state::{constants, GovernanceType};
