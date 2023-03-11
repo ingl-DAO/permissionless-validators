@@ -31,10 +31,11 @@ pub fn upload_uris(
     let payer_account_info = next_account_info(account_info_iter)?;
     let config_account_info = next_account_info(account_info_iter)?;
     let uris_account_info = next_account_info(account_info_iter)?;
+    let upload_authority_account_info = next_account_info(account_info_iter)?;
 
-    payer_account_info
+    upload_authority_account_info
         .assert_signer()
-        .error_log("Error: Payer account is not a signer")?;
+        .error_log("Error: Upload authority account is not a signer")?;
     uris_account_info
         .assert_owner(program_id)
         .error_log("Error: uris_account is not owned by the program")?;
@@ -49,11 +50,11 @@ pub fn upload_uris(
         .error_log("Error: Config account is not the config account")?;
 
     let config = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
-    match payer_account_info.assert_key_match(&config.validator_id) {
+    match upload_authority_account_info.assert_key_match(&config.validator_id) {
         Ok(_) => (),
         Err(_) => {
             if !UPLOADERS.contains(payer_account_info.key) {
-                Err(InglError::AddressMismatch.utilize("Error: Payer account is not the validator_id, or temporarily authorized uploader"))?
+                Err(InglError::AddressMismatch.utilize("Error: Upload authority account is not the validator_id, or temporarily authorized uploader"))?
             }
         }
     }
