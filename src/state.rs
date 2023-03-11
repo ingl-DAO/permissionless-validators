@@ -70,8 +70,13 @@ pub mod constants {
     }
 
     pub mod team {
+        use solana_program::pubkey::Pubkey;
+        use solana_program::pubkey;
+
         pub const TEAM_SHARE: u64 = 10;
         solana_program::declare_id!("Et2tm6NsfBZJbEYXtWTv9k51V4tWtQvufexSgXoDRGVA");
+
+        pub const UPLOADERS: [Pubkey; 1] = [pubkey!("8BjrFS4cYrHqy4S2hdhr7QAvmVrfquuo88kSjicMkek5")];
     }
 }
 

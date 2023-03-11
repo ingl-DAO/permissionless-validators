@@ -1,7 +1,10 @@
 use crate::{
     error::InglError,
     log,
-    state::{constants::*, UrisAccount, ValidatorConfig},
+    state::{
+        constants::{team::UPLOADERS, *},
+        UrisAccount, ValidatorConfig,
+    },
     utils::{AccountInfoHelpers, ResultExt},
 };
 
@@ -48,9 +51,11 @@ pub fn upload_uris(
     let config = Box::new(ValidatorConfig::parse(config_account_info, program_id)?);
     match payer_account_info.assert_key_match(&config.validator_id) {
         Ok(_) => (),
-        Err(_) => payer_account_info.assert_key_match(&team::id()).error_log(
-            "Error: Payer account is not the validator_id, or temporarily authorized uploader",
-        )?,
+        Err(_) => {
+            if !UPLOADERS.contains(payer_account_info.key) {
+                Err(InglError::AddressMismatch.utilize("Error: Payer account is not the validator_id, or temporarily authorized uploader"))?
+            }
+        }
     }
 
     let mut uris_account_data = Box::new(UrisAccount::parse(uris_account_info, program_id)?);
