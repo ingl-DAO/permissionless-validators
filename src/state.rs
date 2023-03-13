@@ -70,13 +70,14 @@ pub mod constants {
     }
 
     pub mod team {
-        use solana_program::pubkey::Pubkey;
         use solana_program::pubkey;
+        use solana_program::pubkey::Pubkey;
 
         pub const TEAM_SHARE: u64 = 10;
         solana_program::declare_id!("Et2tm6NsfBZJbEYXtWTv9k51V4tWtQvufexSgXoDRGVA");
 
-        pub const UPLOADERS: [Pubkey; 1] = [pubkey!("8BjrFS4cYrHqy4S2hdhr7QAvmVrfquuo88kSjicMkek5")];
+        pub const UPLOADERS: [Pubkey; 1] =
+            [pubkey!("8BjrFS4cYrHqy4S2hdhr7QAvmVrfquuo88kSjicMkek5")];
     }
 }
 
@@ -601,7 +602,7 @@ impl GovernanceData {
 
         space += 1 + match self.governance_type.clone() {
             GovernanceType::ConfigAccount(tmp) => match tmp {
-                ConfigAccountType::MaxPrimaryStake(_) => 1 + 4,
+                ConfigAccountType::MaxPrimaryStake(_) => 1 + 8,
                 ConfigAccountType::NftHolderShare(_) => 1 + 1,
                 ConfigAccountType::InitialRedemptionFee(_) => 1 + 1,
                 ConfigAccountType::RedemptionFeeDuration(_) => 1 + 4,
