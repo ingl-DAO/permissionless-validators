@@ -134,6 +134,7 @@ pub fn finalize_governance(
         }
     }
     governance_data.is_still_ongoing = false;
+    governance_data.date_finalized = Some(clock_data.unix_timestamp as u32);
     log!(log_level, 0, "serialization only left");
     governance_data
         .serialize(&mut &mut proposal_account_info.data.borrow_mut()[..])
