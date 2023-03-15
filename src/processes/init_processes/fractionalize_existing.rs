@@ -100,7 +100,9 @@ pub fn fractionalize(
             &[this_program_account_info.key.as_ref()],
         )
         .error_log("Error @ program data key assertion")?;
-    current_upgrade_authority_info.assert_signer().error_log("upgrade_authority must sign initialization")?;
+    current_upgrade_authority_info
+        .assert_signer()
+        .error_log("upgrade_authority must sign initialization")?;
     current_upgrade_authority_info
         .assert_key_match(&Box::new(
             Pubkey::try_from(
@@ -134,7 +136,7 @@ pub fn fractionalize(
         sysvar_clock_account_info.clone(),
     ];
 
-    swap_authority(program_id, swap_authority_accounts)
+    swap_authority(program_id, swap_authority_accounts, log_level)
         .error_log("an error while swapping withdraw authority")?;
 
     log!(log_level, 2, "Initiating commission change invocation ...");
@@ -286,7 +288,7 @@ pub fn fractionalize(
     Ok(())
 }
 
-fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo], log_level: u8) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let current_withdraw_authority_info = next_account_info(account_info_iter)?;
     let pda_withdraw_authority_info = next_account_info(account_info_iter)?;
@@ -299,7 +301,6 @@ fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
 
     let expected_authority = vote_state.authorized_withdrawer;
     validator_id_info.assert_key_match(&vote_state.node_pubkey)?;
-    validator_id_info.assert_key_match(&vote_state.authorized_voters.last().unwrap().1)?;
 
     current_withdraw_authority_info.assert_key_match(&expected_authority)?;
     pda_withdraw_authority_info
@@ -308,6 +309,23 @@ fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
     sysvar_clock_info
         .assert_key_match(&sysvar::clock::id())
         .error_log("Error @ system clock key assertion")?;
+
+    log!(log_level, 2, "Updating the authorized voter...");
+    invoke(
+        &authorize(
+            vote_account_info.key,
+            current_withdraw_authority_info.key,
+            &validator_id_info.key,
+            VoteAuthorize::Voter,
+        ),
+        &[
+            vote_account_info.clone(),
+            sysvar_clock_info.clone(),
+            current_withdraw_authority_info.clone(),
+        ],
+    )?;
+
+    log!(log_level, 2, "Updating the authorized withdrawer...");
     invoke(
         &authorize(
             vote_account_info.key,
