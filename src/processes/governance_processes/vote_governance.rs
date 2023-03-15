@@ -77,7 +77,7 @@ pub fn vote_governance(
         }
 
         log!(log_level, 0, "about to insert vote");
-        governance_data.votes.insert(numeration, vote);
+        governance_data.votes.insert(nft_data.numeration, vote);
         nft_data.all_votes.insert(numeration, vote);
         incremented_space += 5;
         let new_space = nft_account_data_info.data.borrow().len() + 5;

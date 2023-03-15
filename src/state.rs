@@ -1,5 +1,5 @@
 #![allow(unused_parens)]
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     colored_log,
@@ -70,8 +70,14 @@ pub mod constants {
     }
 
     pub mod team {
+        use solana_program::pubkey;
+        use solana_program::pubkey::Pubkey;
+
         pub const TEAM_SHARE: u64 = 10;
         solana_program::declare_id!("Et2tm6NsfBZJbEYXtWTv9k51V4tWtQvufexSgXoDRGVA");
+
+        pub const UPLOADERS: [Pubkey; 1] =
+            [pubkey!("8BjrFS4cYrHqy4S2hdhr7QAvmVrfquuo88kSjicMkek5")];
     }
 }
 
@@ -596,7 +602,7 @@ impl GovernanceData {
 
         space += 1 + match self.governance_type.clone() {
             GovernanceType::ConfigAccount(tmp) => match tmp {
-                ConfigAccountType::MaxPrimaryStake(_) => 1 + 4,
+                ConfigAccountType::MaxPrimaryStake(_) => 1 + 8,
                 ConfigAccountType::NftHolderShare(_) => 1 + 1,
                 ConfigAccountType::InitialRedemptionFee(_) => 1 + 1,
                 ConfigAccountType::RedemptionFeeDuration(_) => 1 + 4,
@@ -650,18 +656,6 @@ pub struct VoteState {
 
     /// the signer for withdrawals
     pub authorized_withdrawer: Pubkey,
-    /// percentage (0-100) that represents what part of a rewards
-    ///  payout should be given to this VoteAccount
-    pub commission: u8,
-
-    pub votes: VecDeque<Lockout>,
-
-    // This usually the last Lockout which was popped from self.votes.
-    // However, it can be arbitrary slot, when being used inside Tower
-    pub root_slot: Option<Slot>,
-
-    /// the signer for vote transactions
-    pub authorized_voters: AuthorizedVoters,
     // OTHER FIELDS OMITTED INORDER TO DESERIALIZE ON THE STACK.
 }
 impl VoteState {
@@ -707,30 +701,8 @@ pub enum VoteStateVersions {
 impl VoteStateVersions {
     pub fn convert_to_current(self) -> Box<VoteState> {
         match self {
-            VoteStateVersions::V0_23_5(state) => {
-                let authorized_voters =
-                    AuthorizedVoters::new(state.authorized_voter_epoch, state.authorized_voter);
-
-                Box::new(VoteState {
-                    padding_for_borsh: [0, 0, 0],
-
-                    node_pubkey: state.node_pubkey,
-
-                    /// the signer for withdrawals
-                    authorized_withdrawer: state.authorized_withdrawer,
-
-                    /// percentage (0-100) that represents what part of a rewards
-                    ///  payout should be given to this VoteAccount
-                    commission: state.commission,
-
-                    votes: VecDeque::new(),
-
-                    root_slot: None,
-
-                    /// the signer for vote transactions
-                    authorized_voters,
-                })
-            }
+            VoteStateVersions::V0_23_5(_state) => Err(InglError::InvalidStructType
+                .utilize("vote account version not currently supported !!")).unwrap(),
             VoteStateVersions::Current(state) => state,
         }
     }
