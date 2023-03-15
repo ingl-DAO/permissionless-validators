@@ -100,17 +100,17 @@ pub enum InstructionEnum {
         log_level: u8,
     },
     FinalizeGovernance {
-        //Untested
+        //Tested
         numeration: u32,
         log_level: u8,
     },
     ExecuteGovernance {
-        //Untested
+        //Tested
         numeration: u32,
         log_level: u8,
     },
     InjectTestingData {
-        //Untested
+        //Tested
         num_mints: u8,
         log_level: u8,
     },

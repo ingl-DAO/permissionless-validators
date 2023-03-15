@@ -590,7 +590,7 @@ pub struct GovernanceData {
 impl GovernanceData {
     pub fn get_space(&self) -> usize {
         let mut space = 4 + 4 + 1 + 5 + 2 + 1;
-        space += self.votes.len() * 5;
+        space += 4 + self.votes.len() * 5;
         space += 4 + self.title.len();
         space += 4 + self.description.len();
 
