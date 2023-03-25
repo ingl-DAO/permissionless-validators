@@ -1,7 +1,6 @@
 use crate::{
-    instruction::{vote_create_account, vote_initialize_account},
     log,
-    state::{constants::*, GeneralData, ValidatorConfig, VoteInit},
+    state::{constants::*, GeneralData, ValidatorConfig, VoteState},
     utils::{
         get_clock_data_from_account, get_rent_data_from_account, AccountInfoHelpers, ResultExt,
     },
@@ -9,7 +8,7 @@ use crate::{
 
 use borsh::BorshSerialize;
 
-use solana_program::native_token::LAMPORTS_PER_SOL;
+use solana_program::{native_token::LAMPORTS_PER_SOL, vote::{instruction::create_account, state::VoteInit}};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -101,10 +100,13 @@ pub fn create_vote_account(
         commission: config_data.commission,
         authorized_withdrawer,
     };
+
+    let ixs = create_account(validator_info.key, vote_account_info.key, &vote_init, VoteState::min_lamports());
+
     log!(log_level, 2, "Creating vote_account @vote_program invoke");
     if !clock_is_from_account {
         invoke_signed(
-            &vote_create_account(validator_info.key, vote_account_info.key),
+            &ixs[0],
             &[validator_info.clone(), vote_account_info.clone()],
             &[&[VOTE_ACCOUNT_KEY.as_ref(), &[expected_vote_pubkey_bump]]],
         )
@@ -122,7 +124,7 @@ pub fn create_vote_account(
         "Initializing vote_account @vote_program invoke"
     );
     invoke(
-        &vote_initialize_account(vote_account_info.key, &vote_init),
+        &ixs[1],
         &[
             vote_account_info.clone(),
             sysvar_rent_info.clone(),

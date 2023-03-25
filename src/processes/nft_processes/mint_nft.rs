@@ -3,11 +3,10 @@ use std::collections::BTreeMap;
 use crate::{
     error::InglError,
     log,
-    state::{constants::*, FundsLocation, GeneralData, Network, NftData, ValidatorConfig},
+    state::{constants::*, FundsLocation, GeneralData, NftData, ValidatorConfig},
     utils::{get_clock_data, get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
-use anchor_lang::{prelude::ProgramError, AnchorDeserialize};
-use borsh::BorshSerialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use mpl_token_metadata::{
     self as metaplex,
     state::{Collection, Creator, PREFIX},
@@ -17,6 +16,7 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     program::{invoke, invoke_signed},
+    program_error::ProgramError,
     program_pack::Pack,
     pubkey::Pubkey,
     system_instruction, system_program, sysvar,
@@ -427,7 +427,7 @@ pub fn process_mint_nft(
         date_created: current_timestamp,
         numeration: general_data.mint_numeration,
         rarity: None,
-        rarity_seed_time: None,
+        rarity_seed_slot: None,
         funds_location: FundsLocation::Delegated,
         all_withdraws: Vec::new(),
         all_votes: BTreeMap::new(),
@@ -538,7 +538,7 @@ fn init_imprint_rarity(
     )
     .error_log("Error: Invalid NFT Account")?;
 
-    if let Some(_) = nft_data.rarity_seed_time {
+    if let Some(_) = nft_data.rarity_seed_slot {
         Err(ProgramError::InvalidAccountData).error_log("@nft_data rarity seed time already set")?
     }
 
@@ -557,15 +557,8 @@ fn init_imprint_rarity(
         )
         .error_log("Error: @edition_account_info")?;
 
-    nft_data.rarity_seed_time = match NETWORK {
-        Network::Devnet => Some(clock_data.unix_timestamp as u32 + DEV_PRICE_TIME_INTERVAL as u32),
-        Network::Mainnet => {
-            Some(clock_data.unix_timestamp as u32 + MAIN_PRICE_TIME_INTERVAL as u32)
-        }
-        Network::LocalTest => {
-            Some(clock_data.unix_timestamp as u32 + LOCALTEST_PRICE_TIME_INTERVAL as u32)
-        }
-    };
+    nft_data.rarity_seed_slot = Some(clock_data.slot + RARITY_IMPRINT_WAIT_SLOTS);
+
     nft_data.serialize(&mut &mut nft_account_info.data.borrow_mut()[..])?;
 
     log!(log_level, 2, "Freezing the associated token account ...");

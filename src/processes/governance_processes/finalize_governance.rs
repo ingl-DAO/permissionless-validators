@@ -88,17 +88,16 @@ pub fn finalize_governance(
         .checked_div(config_data.unit_backing)
         .error_log("failed to calculate total_votes_expected")?
         as u32;
-    let mut total_yes_votes: u32 = 0;
+    let mut number_of_votes: u32 = 0;
     let mut total_no_votes: u32 = 0;
     for vote in governance_data.votes.values() {
-        if *vote {
-            total_yes_votes += 1;
-        } else {
+        if !*vote {
             total_no_votes += 1;
         }
+        number_of_votes += 1;
     }
 
-    if total_no_votes + total_yes_votes
+    if number_of_votes
         <= (config_data.proposal_quorum as u32)
             .checked_mul(total_votes_expected)
             .error_log("Error at quorum mult")?
@@ -109,14 +108,13 @@ pub fn finalize_governance(
     }
 
     if (total_no_votes * 100)
-        .checked_div(total_votes_expected)
+        .checked_div(number_of_votes)
         .error_log("Error Calculating Dissaproval Percentage")?
         > 20
         || (governance_data.expiration_time < clock_data.unix_timestamp as u32)
     {
         governance_data.did_proposal_pass = Some(false);
-    } else if total_yes_votes as f64 >= total_votes_expected as f64 * GOVERNANCE_EXECUTION_THRESHOLD
-    {
+    } else {
         governance_data.did_proposal_pass = Some(true);
         match governance_data.clone().governance_type {
             GovernanceType::ProgramUpgrade {
@@ -136,6 +134,7 @@ pub fn finalize_governance(
         }
     }
     governance_data.is_still_ongoing = false;
+    governance_data.date_finalized = Some(clock_data.unix_timestamp as u32);
     log!(log_level, 0, "serialization only left");
     governance_data
         .serialize(&mut &mut proposal_account_info.data.borrow_mut()[..])

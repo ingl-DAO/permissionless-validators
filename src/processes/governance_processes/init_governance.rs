@@ -4,8 +4,8 @@ use crate::{
     error::InglError,
     log,
     state::{
-        constants::*, GeneralData, GovernanceData, GovernanceType, UpgradeableLoaderState,
-        ValidatorConfig, VoteAccountGovernance,
+        constants::*, GeneralData, GovernanceData, GovernanceType, ValidatorConfig,
+        VoteAccountGovernance,
     },
     utils::{
         get_clock_data, get_rent_data, verify_nft_ownership, AccountInfoHelpers, OptionExt,
@@ -19,6 +19,7 @@ use solana_program::native_token::LAMPORTS_PER_SOL;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     bpf_loader_upgradeable,
+    bpf_loader_upgradeable::UpgradeableLoaderState,
     entrypoint::ProgramResult,
     program::{invoke, invoke_signed},
     pubkey::Pubkey,

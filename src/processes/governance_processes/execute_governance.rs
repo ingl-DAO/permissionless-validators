@@ -2,11 +2,10 @@ use std::slice::Iter;
 
 use crate::{
     error::InglError,
-    instruction::{vote_authorize, vote_update_commission, vote_update_validator_identity},
     log,
     state::{
         constants::*, ConfigAccountType, GeneralData, GovernanceData, GovernanceType,
-        ValidatorConfig, VoteAccountGovernance, VoteAuthorize,
+        ValidatorConfig, VoteAccountGovernance,
     },
     utils::{AccountInfoHelpers, OptionExt, ResultExt},
 };
@@ -21,6 +20,7 @@ use solana_program::{
     program::invoke_signed,
     pubkey::Pubkey,
     sysvar::{self, Sysvar},
+    vote::{instruction::{authorize, update_commission, update_validator_identity}, state::VoteAuthorize},
 };
 
 pub fn execute_governance(
@@ -301,7 +301,7 @@ pub fn handle_vote_account_governance_change(
                 "Initiating authorized_voter change invocation ..."
             );
             invoke_signed(
-                &vote_authorize(
+                &authorize(
                     vote_account_info.key,
                     authorized_withdrawer_info.key,
                     &new_validator_id,
@@ -316,7 +316,7 @@ pub fn handle_vote_account_governance_change(
             )?;
             log!(log_level, 3, "Changed authorized_voter !!!");
             invoke_signed(
-                &vote_update_validator_identity(
+                &update_validator_identity(
                     vote_account_info.key,
                     authorized_withdrawer_info.key,
                     new_validator_id_info.key,
@@ -333,7 +333,7 @@ pub fn handle_vote_account_governance_change(
         VoteAccountGovernance::Commission(new_commission) => {
             log!(log_level, 3, "Initiating commission change invocation ...");
             invoke_signed(
-                &vote_update_commission(
+                &update_commission(
                     vote_account_info.key,
                     authorized_withdrawer_info.key,
                     new_commission,

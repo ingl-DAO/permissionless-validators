@@ -1,7 +1,7 @@
 use crate::{
-    instruction::{register_program_instruction, vote_authorize, vote_update_commission, InitArgs},
+    instruction::{register_program_instruction, InitArgs},
     log,
-    state::{constants::*, GeneralData, UrisAccount, ValidatorConfig, VoteAuthorize, VoteState},
+    state::{constants::*, GeneralData, UrisAccount, ValidatorConfig, VoteState},
     utils::{get_rent_data_from_account, AccountInfoHelpers, OptionExt, ResultExt},
 };
 use borsh::BorshSerialize;
@@ -13,6 +13,10 @@ use solana_program::{
     program::{invoke, invoke_signed},
     pubkey::Pubkey,
     system_instruction, system_program, sysvar,
+    vote::{
+        instruction::{authorize, update_commission},
+        state::VoteAuthorize,
+    },
 };
 
 pub fn fractionalize(
@@ -32,7 +36,6 @@ pub fn fractionalize(
         creator_royalties,
         rarities,
         rarity_names,
-        name_storage_numeration,
         governance_expiration_time,
         twitter_handle,
         discord_invite,
@@ -60,22 +63,18 @@ pub fn fractionalize(
     let spl_token_program_account_info = next_account_info(account_info_iter)?;
     let system_program_account_info = next_account_info(account_info_iter)?;
     let this_program_data_info = next_account_info(account_info_iter)?;
+    let current_upgrade_authority_info = next_account_info(account_info_iter)?;
 
     let current_authorized_withdrawer_info = next_account_info(account_info_iter)?;
     let pda_authorized_withdrawer_info = next_account_info(account_info_iter)?;
     let vote_account_info = next_account_info(account_info_iter)?;
     let sysvar_clock_account_info = next_account_info(account_info_iter)?;
 
-    let registry_program_config_account = next_account_info(account_info_iter)?;
     let this_program_account_info = next_account_info(account_info_iter)?;
     let team_account_info = next_account_info(account_info_iter)?;
     let storage_account_info = next_account_info(account_info_iter)?;
-
-    let mut name_storage_accounts = vec![];
-
-    for _ in 0..name_storage_numeration + 1 {
-        name_storage_accounts.push(next_account_info(account_info_iter)?.clone());
-    }
+    let name_storage_account_info = next_account_info(account_info_iter)?;
+    // let registry_program_config_account = next_account_info(account_info_iter)?;
 
     let rent_data = get_rent_data_from_account(rent_account_info)?;
 
@@ -101,10 +100,16 @@ pub fn fractionalize(
             &[this_program_account_info.key.as_ref()],
         )
         .error_log("Error @ program data key assertion")?;
-    payer_account_info
-        .assert_key_match(&Box::new(Pubkey::new(
-            &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
-        )))
+    current_upgrade_authority_info
+        .assert_signer()
+        .error_log("upgrade_authority must sign initialization")?;
+    current_upgrade_authority_info
+        .assert_key_match(&Box::new(
+            Pubkey::try_from(
+                &this_program_data_info.data.borrow()[13..45], // Upgrade authority of the program
+            )
+            .unwrap(),
+        ))
         .error_log("Error @ program data key assertion")?;
 
     system_program_account_info
@@ -113,9 +118,9 @@ pub fn fractionalize(
     spl_token_program_account_info
         .assert_key_match(&spl_token::id())
         .error_log("Error @ spl_token_program_account_info Assertion")?;
-    registry_program_config_account
-        .assert_owner(&program_registry::id())
-        .error_log("Error @ registry_program_config_account Assertion")?;
+    // registry_program_config_account
+    //     .assert_owner(&program_registry::id())
+    //     .error_log("Error @ registry_program_config_account Assertion")?;
     this_program_account_info
         .assert_key_match(program_id)
         .error_log("Error @ this_program_account_info Assertion")?;
@@ -131,12 +136,12 @@ pub fn fractionalize(
         sysvar_clock_account_info.clone(),
     ];
 
-    swap_authority(program_id, swap_authority_accounts)
+    swap_authority(program_id, swap_authority_accounts, log_level)
         .error_log("an error while swapping withdraw authority")?;
 
     log!(log_level, 2, "Initiating commission change invocation ...");
     invoke_signed(
-        &vote_update_commission(
+        &update_commission(
             vote_account_info.key,
             pda_authorized_withdrawer_info.key,
             init_commission,
@@ -263,25 +268,19 @@ pub fn fractionalize(
         .serialize(&mut &mut uris_account_info.data.borrow_mut()[..])
         .error_log("Error @ Uris Account Data Serialization")?;
 
-    let mut registry_program_accounts = vec![
+    let registry_program_accounts = vec![
         payer_account_info.clone(),
-        registry_program_config_account.clone(),
         this_program_account_info.clone(),
         team_account_info.clone(),
         storage_account_info.clone(),
+        name_storage_account_info.clone(),
+        // registry_program_config_account.clone(),
+        system_program_account_info.clone(),
     ];
-    registry_program_accounts.extend(name_storage_accounts);
-    registry_program_accounts.push(system_program_account_info.clone());
 
     log!(log_level, 2, "Initing Program Registration ... ");
     invoke(
-        &register_program_instruction(
-            *payer_account_info.key,
-            *program_id,
-            *storage_account_info.key,
-            validator_name,
-            name_storage_numeration,
-        ),
+        &register_program_instruction(*payer_account_info.key, *program_id, validator_name),
         &registry_program_accounts,
     )?;
 
@@ -289,7 +288,7 @@ pub fn fractionalize(
     Ok(())
 }
 
-fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo], log_level: u8) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let current_withdraw_authority_info = next_account_info(account_info_iter)?;
     let pda_withdraw_authority_info = next_account_info(account_info_iter)?;
@@ -302,7 +301,6 @@ fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
 
     let expected_authority = vote_state.authorized_withdrawer;
     validator_id_info.assert_key_match(&vote_state.node_pubkey)?;
-    validator_id_info.assert_key_match(&vote_state.authorized_voters.last().unwrap().1)?;
 
     current_withdraw_authority_info.assert_key_match(&expected_authority)?;
     pda_withdraw_authority_info
@@ -311,8 +309,25 @@ fn swap_authority(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResul
     sysvar_clock_info
         .assert_key_match(&sysvar::clock::id())
         .error_log("Error @ system clock key assertion")?;
+
+    log!(log_level, 2, "Updating the authorized voter...");
     invoke(
-        &vote_authorize(
+        &authorize(
+            vote_account_info.key,
+            current_withdraw_authority_info.key,
+            &validator_id_info.key,
+            VoteAuthorize::Voter,
+        ),
+        &[
+            vote_account_info.clone(),
+            sysvar_clock_info.clone(),
+            current_withdraw_authority_info.clone(),
+        ],
+    )?;
+
+    log!(log_level, 2, "Updating the authorized withdrawer...");
+    invoke(
+        &authorize(
             vote_account_info.key,
             current_withdraw_authority_info.key,
             &pda_withdraw_authority_info.key,

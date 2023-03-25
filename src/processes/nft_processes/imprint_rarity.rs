@@ -1,30 +1,22 @@
 use crate::{
     error::InglError,
     log,
-    state::{
-        constants::{INGL_MINT_AUTHORITY_KEY, NETWORK},
-        get_feeds, Network, NftData, UrisAccount,
-    },
+    state::{constants::INGL_MINT_AUTHORITY_KEY, NftData, UrisAccount},
     utils::{get_clock_data, verify_nft_ownership, AccountInfoHelpers, OptionExt, ResultExt},
 };
 
-use anchor_lang::AnchorDeserialize;
-
-use borsh::BorshSerialize;
+use arrayref::array_ref;
+use borsh::{BorshDeserialize, BorshSerialize};
 
 use mpl_token_metadata::state::{DataV2, Metadata, PREFIX};
 
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    blake3::hash,
     entrypoint::ProgramResult,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
-};
-
-use switchboard_v2::{
-    AggregatorHistoryBuffer, AggregatorHistoryRow, SWITCHBOARD_PROGRAM_ID, SWITCHBOARD_V2_DEVNET,
+    sysvar,
 };
 
 pub fn process_imprint_rarity(
@@ -45,6 +37,7 @@ pub fn process_imprint_rarity(
     let ingl_config_account_info = next_account_info(account_info_iter)?;
     let uris_account_info = next_account_info(account_info_iter)?;
     let token_program_account_info = next_account_info(account_info_iter)?;
+    let recent_blockhashes_account_info = next_account_info(account_info_iter)?;
 
     log!(log_level, 0, "Done retrieving accounts infos");
     let clock_data = get_clock_data(account_info_iter, clock_is_from_account)?;
@@ -72,7 +65,12 @@ pub fn process_imprint_rarity(
     metadata_account_info
         .assert_owner(&mpl_token_metadata::id())
         .error_log("Error: @metadata_account_info ownership")?;
-
+    recent_blockhashes_account_info
+        .assert_owner(&solana_program::sysvar::id())
+        .error_log("Error: @recent_blockhashes_account_info ownership")?;
+    recent_blockhashes_account_info
+        .assert_key_match(&sysvar::slot_hashes::ID)
+        .error_log("Error: @recent_blockhashes_account_info key")?;
     ingl_config_account_info
         .assert_owner(&program_id)
         .error_log("Error: Ingl config account is not owned by the program")?;
@@ -84,10 +82,10 @@ pub fn process_imprint_rarity(
     .error_log("Error: Invalid NFT Account")?;
 
     log!(log_level, 0, "Checking deserialized data...");
-    if (clock_data.unix_timestamp as u32)
+    if (clock_data.slot as u64)
         < nft_data
-            .rarity_seed_time
-            .error_log("Error: Rarity seed time can't be None")?
+            .rarity_seed_slot
+            .error_log("Error: Rarity seed slot can't be None")?
     {
         Err(InglError::TooEarly.utilize("imprint_rarity"))?
     }
@@ -150,61 +148,13 @@ pub fn process_imprint_rarity(
     let gem_metadata = Metadata::deserialize(&mut &metadata_account_info.data.borrow()[..])
         .error_log("Error: @ deserialize metadata")?;
 
-    let mut rarity_hash_bytes = Vec::new();
+    let recent_blockhashes_data = recent_blockhashes_account_info.data.borrow(); //TODO: ensure to only use the blockhash for the rarity seed slot, and fail use the common rarity if the slot is too old.
+    let most_recent = array_ref![recent_blockhashes_data, 12, 8];
 
-    let interested_network = NETWORK;
-    let history_feeds_pubkeys = get_feeds(&interested_network);
-    log!(
-        log_level,
-        0,
-        "starting history feeds loop, rarity_seed_time: {}",
-        nft_data.rarity_seed_time.unwrap()
-    );
-    for cnt in 0..history_feeds_pubkeys.len() {
-        let history_feed_account_info = next_account_info(account_info_iter)?;
-        match interested_network {
-            Network::LocalTest => {
-                history_feed_account_info
-                    .assert_owner(&SWITCHBOARD_V2_DEVNET)
-                    .error_log("@history_feed")?;
-            }
-            _ => {
-                history_feed_account_info
-                    .assert_owner(&SWITCHBOARD_PROGRAM_ID)
-                    .error_log("@history_feed")?;
-            }
-        }
-        if &history_feeds_pubkeys[cnt] != history_feed_account_info.key {
-            Err(InglError::InvalidHistoryBufferKeys
-                .utilize(&format!("a problem with history buffer key No: {}", cnt)))?
-        }
-
-        let history_feed = AggregatorHistoryBuffer::new(history_feed_account_info)
-            .error_log(&format!("Error getting history feed No: {}", cnt))?;
-        let AggregatorHistoryRow {
-            value,
-            timestamp: _,
-        } = history_feed
-            .lower_bound(
-                nft_data
-                    .rarity_seed_time
-                    .error_log("Error: rarity seed time can't be None")? as i64,
-            )
-            .error_log("Error @ getting AggregatorHistoryRow")?;
-
-        let history_feed_price = value.mantissa as u128;
-        rarity_hash_bytes.extend(&history_feed_price.to_be_bytes());
-    }
-    log!(log_level, 0, "finished history feeds loop");
-    rarity_hash_bytes.extend(&program_id.to_bytes());
-    rarity_hash_bytes.extend(&mint_account_info.key.to_bytes());
+    let seed = ((u64::from_le_bytes(*most_recent).saturating_sub(clock_data.unix_timestamp as u64))
+        % 10000) as u16;
 
     let uris_data = Box::new(UrisAccount::parse(&uris_account_info, program_id)?);
-    let seed = if clock_is_from_account {
-        1
-    } else {
-        get_rarity_seed(rarity_hash_bytes.clone())
-    };
     let (nft_rarity_uri, rarity) = uris_data.get_uri(seed);
 
     log!(log_level, 2, "Updating metadata account ...");
@@ -242,15 +192,4 @@ pub fn process_imprint_rarity(
 
     log!(log_level, 4, "Imprint rarity !!!");
     Ok(())
-}
-
-fn get_rarity_seed(seed_bytes: Vec<u8>) -> u16 {
-    let rarity_hash_bytes = hash(&seed_bytes).to_bytes();
-
-    let mut byte_sum: u64 = 0;
-    for byte in rarity_hash_bytes {
-        byte_sum = byte_sum + (byte as u64).pow(3);
-    }
-
-    (byte_sum % 10000) as u16
 }
