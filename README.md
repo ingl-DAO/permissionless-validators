@@ -1,12 +1,43 @@
 <p align="center">
-  <a href="" rel="https://www.ingl.io">
- <img src="images/logo.png" alt="Project logo" width="50%"></a>
+  <img src="images/logo.png" alt="Project logo" width="50%">
 </p>
 <h3 align="center">
 Fractionalizing Validator Creation and Ownership</h3>
 <br />
 
-##
+## Project status
+
+> **Archived / devnet-only.** This program was built and tested on **Solana devnet**. It was never
+> deployed to mainnet-beta, and it is not maintained. The instructions below are pinned to
+> **Solana CLI v1.14.12** (March 2023) and will not work unmodified against current Solana releases.
+
+**What it does.** Fractionalizes the creation and ownership of a Solana validator. Instead of
+requiring one operator to supply the full stake and hardware, the program lets many participants
+buy in — from roughly 1 SOL — via NFTs that represent a share of the validator, delegate that
+stake to a program-owned vote account, and share in the validator's rewards. Governance over the
+validator's configuration is itself on-chain and NFT-weighted.
+
+**Scope of what was proven.** The full lifecycle runs on devnet: deploy the program → initialize
+the instance → mint and delegate NFTs → create the vote account → run the validator → process and
+rebalance rewards → govern changes. Mainnet was out of scope: it requires real capital at stake,
+production validator hardware, and an audit — none of which applied to this project.
+
+**What would differ on mainnet.** Real economics (stake-weighted rewards, delinquency and
+commission risk), a security audit of the rebalancing and governance paths, hardened key
+custody for the upgrade and withdraw authorities, and validator hardware meeting mainnet's
+substantially higher CPU/RAM/NVMe bar.
+
+### Contributors
+
+| Area | Contributors |
+| --- | --- |
+| On-chain program (Rust) | [@kamda-cyrial](https://github.com/kamda-cyrial) (98 commits), [@marcjazz](https://github.com/marcjazz) (37), [@artemesian](https://github.com/artemesian) (3) |
+| Client ([permissionless-validators-client](https://github.com/ingl-DAO/permissionless-validators-client)) | [@marcjazz](https://github.com/marcjazz) (213 commits), [@Tchakoumi](https://github.com/Tchakoumi) (167), [@artemesian](https://github.com/artemesian) (54) |
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a map of the program.
+
+---
+
 
 ## Creating your Fractionalized Validator Instance.
 
