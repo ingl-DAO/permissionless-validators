@@ -36,6 +36,14 @@ substantially higher CPU/RAM/NVMe bar.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for a map of the program.
 
+### Related
+
+[**solana-validator-k8s**](https://github.com/ingl-DAO/solana-validator-k8s) — the operational
+counterpart. This repository is the on-chain program that *creates* a validator; that one runs a
+Solana node on Kubernetes, with a portable Helm chart, a disposable Terraform layer, and a
+documented contract between them. Together they cover both halves: the protocol-level work of
+managing vote accounts and stake, and the infrastructure work of actually operating the node.
+
 ---
 
 
